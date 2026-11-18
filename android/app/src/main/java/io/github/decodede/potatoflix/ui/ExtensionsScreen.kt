@@ -73,6 +73,18 @@ fun ExtensionsScreen() {
     val version by PluginManager.version.collectAsState()
     var repos by remember { mutableStateOf(RepositoryManager.getRepositories()) }
     val installed = remember(version) { PluginManager.installed().sortedBy { (it.name ?: it.internalName).lowercase() } }
+    val repoStats = remember(version) { androidx.compose.runtime.mutableStateMapOf<String, Pair<Int, Int>>() }
+    val installedNames = remember(version) { installed.map { it.internalName }.toSet() }
+    androidx.compose.runtime.LaunchedEffect(version, repos) {
+        repos.forEach { repo ->
+            kotlinx.coroutines.launch(Dispatchers.IO) {
+                val list = RepositoryManager.getRepoPlugins(repo).orEmpty()
+                val alive = list.filter { it.plugin.status != 0 }
+                val have = alive.count { installedNames.contains(it.plugin.internalName) }
+                repoStats[repo.url] = have to alive.size
+            }
+        }
+    }
     val repoIcons = remember(repos) { repos.mapNotNull { it.iconUrl?.takeIf { u -> u.isNotBlank() }?.let { icon -> it.url to icon } }.toMap() }
     var adding by remember { mutableStateOf(PendingRepo.url != null) }
     var busy by remember { mutableStateOf(false) }
@@ -135,7 +147,9 @@ fun ExtensionsScreen() {
                 if (settingsOpen) RepoSettingsDialog(repo,
                     onDismiss = { settingsOpen = false },
                     onChanged = { repos = RepositoryManager.getRepositories(); PluginManager.bumpVersion() })
-                ListRow(repo.name, repo.description ?: repo.url, repo.iconUrl, onClick = { Nav.open(Screen.Repository(repo.url, repo.name)) }) {
+                val stat = repoStats[repo.url]
+                val sub = listOfNotNull(repo.description, stat?.let { "${it.first}/${it.second} installed" }).joinToString("\n").ifBlank { repo.url }
+                ListRow(repo.name, sub, repo.iconUrl, onClick = { Nav.open(Screen.Repository(repo.url, repo.name)) }) {
                     IconAction(Icons.Filled.Settings, "Repository settings") { settingsOpen = true }
                     IconAction(Icons.Filled.Delete, "Remove") {
                         RepositoryManager.removeRepository(repo.url)

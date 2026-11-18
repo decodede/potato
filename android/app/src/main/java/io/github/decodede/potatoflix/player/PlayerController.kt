@@ -179,8 +179,11 @@ class PlayerController(
             applyTextSelection()
             applyAudioSelection()
             if (!languagesApplied) {
-                languagesApplied = true
-                main.postDelayed({ applyLanguages() }, 800)
+                // Track groups can arrive in waves; only latch once audio/text tracks exist, else retry on the next change.
+                if (audioRefs().isNotEmpty() || textTrackRefs().isNotEmpty()) {
+                    languagesApplied = true
+                    main.postDelayed({ applyLanguages() }, 300)
+                }
             }
         }
     }
@@ -338,7 +341,7 @@ class PlayerController(
         io.github.decodede.potatoflix.AppLog.i("tracks", "text: ${textTrackRefs().joinToString { "${it.id}='${it.label}'/${it.language}" }} -> $textKey${if (textDisabled) " (disabled)" else ""}")
         val key = textKey
         if (!textDisabled && key != null) {
-            val match = textTrackRefs().firstOrNull { trackKey(it) == key || it.id == key }
+            val match = textTrackRefs().firstOrNull { trackKey(it) == key || it.id == key || (key.startsWith("ext-") && it.id?.endsWith(key) == true) }
             if (match != null) params.setOverrideForType(TrackSelectionOverride(match.group, match.index))
         }
         runCatching { trackSelector.parameters = params.build() }
@@ -347,8 +350,9 @@ class PlayerController(
     private fun applyAudioSelection() {
         val params = trackSelector.buildUponParameters().clearOverridesOfType(C.TRACK_TYPE_AUDIO)
         val key = audioKey
+        io.github.decodede.potatoflix.AppLog.i("tracks", "audio: ${audioRefs().joinToString { "${it.id}='${it.label}'/${it.language}" }} -> $key")
         if (key != null) {
-            val match = audioRefs().firstOrNull { trackKey(it) == key }
+            val match = audioRefs().firstOrNull { trackKey(it) == key || it.id == key || it.id?.endsWith(key) == true }
             if (match != null) params.setOverrideForType(TrackSelectionOverride(match.group, match.index))
         }
         runCatching { trackSelector.parameters = params.build() }
