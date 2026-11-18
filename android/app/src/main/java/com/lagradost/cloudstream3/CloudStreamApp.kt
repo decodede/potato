@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import okio.Path.Companion.toPath
 import com.lagradost.api.setContext
 import com.lagradost.cloudstream3.utils.DataStore.getKey
 import com.lagradost.cloudstream3.utils.DataStore.getKeys
@@ -40,7 +41,7 @@ class CloudStreamApp : Application(), coil3.SingletonImageLoader.Factory {
                 .strongReferencesEnabled(false)
                 .build())
             .diskCache(coil3.disk.DiskCache.Builder()
-                .directory(app.cacheDir.resolve("image_cache").toPath())
+                .directory(app.cacheDir.resolve("image_cache").absolutePath.toPath())
                 .maxSizeBytes(if (low) 48L * 1024 * 1024 else 96L * 1024 * 1024)
                 .build())
             .build()

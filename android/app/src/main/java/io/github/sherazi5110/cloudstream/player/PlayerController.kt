@@ -309,7 +309,7 @@ class PlayerController(
         return when {
             path.endsWith(".vtt") || path.endsWith(".webvtt") -> MimeTypes.TEXT_VTT
             path.endsWith(".ass") || path.endsWith(".ssa") -> MimeTypes.TEXT_SSA
-            else -> MimeTypes.TEXT_SUBRIP
+            else -> "application/x-subrip"
         }
     }
 
@@ -578,7 +578,7 @@ class PlayerController(
         player.setMediaSource(mediaSource)
         player.prepare()
         if (keep > 0) player.seekTo(keep)
-        player.playbackSpeed = speed
+        player.setPlaybackSpeed(speed)
         player.playWhenReady = true
         applyTrackVolume()
 
@@ -636,7 +636,8 @@ class PlayerController(
             builder.build(LocalMediaDrmCallback(keyJson))
         } else {
             builder.setMultiSession(true)
-            builder.build(HttpMediaDrmCallback(drm.licenseUrl ?: "", client))
+            val licenseDataSourceFactory = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(client)
+            builder.build(HttpMediaDrmCallback(drm.licenseUrl ?: "", licenseDataSourceFactory))
         }
     }
 
@@ -665,14 +666,20 @@ class PlayerController(
     /** Shows an already added subtitle file again (a new source starts without it). */
     fun selectFile(file: java.io.File) {
         selectedSubtitle = file.absolutePath
-        addSubtitle(SubtitleFile(file.nameWithoutExtension, file.absolutePath, null))
+        scope.launch {
+            val sub = runCatching { com.lagradost.cloudstream3.newSubtitleFile(file.nameWithoutExtension, file.absolutePath) }.getOrNull() ?: return@launch
+            addSubtitle(sub)
+        }
     }
 
     /** Adds a local subtitle file to the player: cleaned when it is SRT/VTT. */
     fun addSubtitleFile(file: java.io.File, name: String = file.name) {
         addedFiles += file to name
         selectedSubtitle = file.absolutePath
-        addSubtitle(SubtitleFile(name, file.absolutePath, null))
+        scope.launch {
+            val sub = runCatching { com.lagradost.cloudstream3.newSubtitleFile(name, file.absolutePath) }.getOrNull() ?: return@launch
+            addSubtitle(sub)
+        }
     }
 
     /** Subtitle files added during this playback (online, translated), with their names. */
@@ -715,13 +722,13 @@ class PlayerController(
     }
 
     /** [s] cleaned (and shifted by the subtitle sync), cached; remote files only (local files pass through). */
-    private fun prepareExternalSubtitle(s: SubtitleFile, clean: SubtitleStyle.Clean): SubtitleFile {
+    private suspend fun prepareExternalSubtitle(s: SubtitleFile, clean: SubtitleStyle.Clean): SubtitleFile {
         val delay = subtitleDelay
         if (!clean.active && delay == 0L && s.url.startsWith("/")) return s
         val dir = java.io.File(App.context.cacheDir, "subtitles").apply { mkdirs() }
         val key = "d-${s.url.hashCode().toUInt()}-${clean.key}-$delay."
         dir.listFiles()?.firstOrNull { it.name.startsWith(key) && it.length() > 0 }
-            ?.let { return SubtitleFile(s.lang, it.absolutePath, null) }
+            ?.let { return com.lagradost.cloudstream3.newSubtitleFile(s.lang, it.absolutePath) }
         val bytes = when {
             s.url.startsWith("/") -> java.io.File(s.url).readBytes()
             s.url.startsWith("file:") -> java.io.File(android.net.Uri.parse(s.url).path!!).readBytes()
@@ -739,7 +746,7 @@ class PlayerController(
         var out = if (clean.active) SubtitleStyle.clean(text, clean) else text
         if (delay != 0L) out = SubtitleStyle.shift(out, delay)
         val ext = if (out.trimStart().startsWith("WEBVTT")) "vtt" else "srt"
-        return SubtitleFile(s.lang, java.io.File(dir, key + ext).apply { writeText(out) }.absolutePath, null)
+        return com.lagradost.cloudstream3.newSubtitleFile(s.lang, java.io.File(dir, key + ext).apply { writeText(out) }.absolutePath)
     }
 
     /** Subtitle files for this playback are in the media item (resolved copies); just re-apply the selection. */
@@ -872,7 +879,7 @@ class PlayerController(
 
     fun setRate(rate: Float) {
         speed = rate
-        player.playbackSpeed = rate
+        player.setPlaybackSpeed(rate)
     }
 
     /** The resize button: Fit → Fill → Zoom → Fit (the others stay in Settings → Player). */
