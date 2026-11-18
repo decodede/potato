@@ -559,8 +559,10 @@ private fun LoadingOverlay(c: PlayerController) {
             }
             if (c.searching || c.current != null) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 10.dp), color = Palette.accent, trackColor = Color.White.copy(alpha = 0.15f))
             else Spacer(Modifier.height(24.dp))
-            // Like the official player: no choices here, just a quiet Skip back button.
-            PillButton("Skip", null, primary = false, compact = true, modifier = Modifier.padding(top = 8.dp)) { Nav.back() }
+            // Like CloudStream's "Skip loading": start with what's found, don't wait for the rest.
+            PillButton("Skip", null, primary = false, compact = true, modifier = Modifier.padding(top = 8.dp)) {
+                c.ranked().firstOrNull()?.let { c.play(it) } ?: Nav.back()
+            }
     }
     }
 }

@@ -34,6 +34,8 @@ data class PluginData(
     val name: String? = null,
     val language: String? = null,
     val iconUrl: String? = null,
+    val description: String? = null,
+    val tvTypes: List<String>? = null,
 )
 
 class LoadedPlugin(
@@ -112,7 +114,7 @@ object PluginManager {
             ?: throw IllegalStateException("${repo.name} no longer lists it")
         val file = RepositoryManager.pluginPath(w.plugin.internalName, w.repositoryData.url, "cs3")
         RepositoryManager.download(w.plugin.url, file, w.plugin.fileHash)
-        val fresh = PluginData(w.plugin.internalName, w.plugin.url, true, file.absolutePath, w.plugin.version, w.repositoryData.url, w.plugin.name, w.plugin.language, w.plugin.iconUrl)
+        val fresh = PluginData(w.plugin.internalName, w.plugin.url, true, file.absolutePath, w.plugin.version, w.repositoryData.url, w.plugin.name, w.plugin.language, w.plugin.iconUrl, w.plugin.description, w.plugin.tvTypes)
         record(fresh)
         return file to fresh
     }
@@ -255,7 +257,7 @@ object PluginManager {
         return runCatching {
             RepositoryManager.download(p.url, target, p.fileHash)
         }.mapCatching { file ->
-            val data = PluginData(p.internalName, p.url, true, file.absolutePath, p.version, wrapper.repositoryData.url, p.name, p.language, p.iconUrl)
+            val data = PluginData(p.internalName, p.url, true, file.absolutePath, p.version, wrapper.repositoryData.url, p.name, p.language, p.iconUrl, p.description, p.tvTypes)
             record(data)
             loadPlugin(file, data).getOrThrow()
         }

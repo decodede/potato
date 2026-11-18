@@ -105,7 +105,7 @@ object SubtitleStyle {
     /** One cue's text lines after the clean-up; empty = drop the cue. */
     internal fun cleanLines(lines: List<String>, c: Clean): List<String> {
         var out = lines
-        if (c.noAds && out.any { ad.containsMatchIn(it.replace(tags, "")) }) return emptyList()
+        if (c.noAds) out = out.filter { !ad.containsMatchIn(plain(it)) }
         if (c.noCaptions) out = out.map { l ->
             if (music.matches(plain(l))) "" else l.replace(bracketed, "").replace(speaker, "$1").replace(Regex("""\s{2,}"""), " ")
                 .replace(Regex("""^((?:<[^>]+>)*)\s+"""), "$1").replace(Regex("""\s+(</[^>]+>)"""), "$1").trimEnd()

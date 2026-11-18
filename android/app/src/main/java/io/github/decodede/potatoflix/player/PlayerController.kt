@@ -158,7 +158,8 @@ class PlayerController(
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-            io.github.decodede.potatoflix.AppLog.w("Potatoflix", "player error: ${error.errorCodeName} ${error.message}")
+            val chain = generateSequence(error as Throwable?) { it.cause }.joinToString(" | ") { "${it.javaClass.simpleName}: ${it.message}" }
+            io.github.decodede.potatoflix.AppLog.e("player", "error: $chain")
             main.post { failover() }
         }
 
@@ -334,6 +335,7 @@ class PlayerController(
 
     private fun applyTextSelection() {
         val params = trackSelector.buildUponParameters().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, textDisabled).clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        io.github.decodede.potatoflix.AppLog.i("tracks", "text: ${textTrackRefs().joinToString { "${it.id}='${it.label}'/${it.language}" }} -> $textKey${if (textDisabled) " (disabled)" else ""}")
         val key = textKey
         if (!textDisabled && key != null) {
             val match = textTrackRefs().firstOrNull { trackKey(it) == key || it.id == key }
@@ -729,7 +731,13 @@ class PlayerController(
             }
         }
         val text = SubtitleStyle.decode(bytes)
-        if (!text.contains("-->")) return s // ASS or binary (PGS/DVB): nothing to clean, nothing to shift
+        if (text.isBlank()) return s
+        val isAss = Regex("(?im)^\\s*\[script info\]|^\\s*Dialogue[: ]").containsMatchIn(text)
+        if (isAss) {
+            // ASS/SSA: ExoPlayer's SSA parser renders it (positions, colours, bold/italic) — keep as-is.
+            return com.lagradost.cloudstream3.newSubtitleFile(s.lang, java.io.File(dir, "${key}ssa").apply { writeText(text) }.absolutePath)
+        }
+        if (!text.contains("-->")) return s // binary (PGS/DVB): nothing the app can parse yet
         var out = if (clean.active) SubtitleStyle.clean(text, clean) else text
         if (delay != 0L) out = SubtitleStyle.shift(out, delay)
         val ext = if (out.trimStart().startsWith("WEBVTT")) "vtt" else "srt"
@@ -760,21 +768,9 @@ class PlayerController(
         applyTrackVolume()
     }
 
-    /** Language names in every form the setting and the track may use ("telugu" ↔ "te" ↔ "tel"). */
-    private fun languageVariants(t: String): Set<String> = buildSet {
-        val token = t.trim().lowercase()
-        add(token)
-        runCatching { add(java.util.Locale(token).isO3Language?.takeIf { it.isNotBlank() }?.lowercase().orEmpty()) } // "te" -> "tel"
-        runCatching { java.util.Locale(token).getDisplayLanguage(java.util.Locale.ENGLISH).lowercase().let { if (it.isNotBlank() && it != token) add(it) } }
-        java.util.Locale.getAvailableLocales().firstOrNull { it.getDisplayLanguage(java.util.Locale.ENGLISH).lowercase() == token }?.let { l ->
-            l.language.takeIf { it.isNotBlank() }?.lowercase()?.let { add(it) }
-            runCatching { l.isO3Language?.takeIf { o -> o.isNotBlank() }?.lowercase()?.let { add(it) } }
-        }
-    }
-
     private fun matchesWanted(label: String?, code: String?, wanted: List<String>): Boolean {
         val text = listOfNotNull(label, code).joinToString(" ").lowercase()
-        return wanted.any { w -> languageVariants(w).any { v -> v.isNotBlank() && text.contains(v) } }
+        return wanted.any { w -> Engine.languageVariants(w).any { v -> v.isNotBlank() && text.contains(v) } }
     }
 
     /** Picks the audio and subtitle languages from Settings → Player, once per playback. */
@@ -787,7 +783,7 @@ class PlayerController(
         val embedded = textTrackRefs().firstOrNull { r -> matchesWanted(r.label, r.language, subs) }
         if (embedded != null) { textKey = trackKey(embedded); applyTextSelection(); return }
         // An external subtitle in the right language: added by the Subtitles flow; pick it if it arrives.
-        subtitles.firstOrNull { s -> subs.any { w -> io.github.decodede.potatoflix.OnlineSubtitles.matches(s.lang, w) || languageVariants(w).any { v -> s.lang.lowercase().contains(v) } } }?.let { s ->
+        subtitles.firstOrNull { s -> subs.any { w -> io.github.decodede.potatoflix.OnlineSubtitles.matches(s.lang, w) || Engine.languageVariants(w).any { v -> s.lang.lowercase().contains(v) } } }?.let { s ->
             selectedSubtitle = s.url
             addSubtitle(s)
         }

@@ -151,7 +151,12 @@ fun ExtensionsScreen() {
                 val loaded = PluginManager.loaded.values.firstOrNull { it.data.internalName == data.internalName }
                 val detail = when {
                     failure != null -> "Failed to load: ${failure.message ?: failure}"
-                    loaded != null -> listOfNotNull(data.language?.uppercase(), "v${loaded.data.version}", loaded.providers.joinToString { it.name }.ifBlank { null }).joinToString(" · ")
+                    loaded != null -> listOfNotNull(
+                        data.language?.uppercase(),
+                        data.tvTypes?.take(3)?.joinToString("/"),
+                        "v${loaded.data.version}",
+                        loaded.providers.joinToString { it.name }.ifBlank { null },
+                    ).joinToString(" · ") + (data.description?.takeIf { it.isNotBlank() }?.let { "\n$it" } ?: "")
                     else -> "Loading…"
                 }
                 // The extension's own settings (some, like Eclipsia, have a limit per provider, timeouts, which

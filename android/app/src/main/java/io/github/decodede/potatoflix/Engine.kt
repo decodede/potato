@@ -265,9 +265,11 @@ object Engine {
     fun rank(links: List<ExtractorLink>): List<ExtractorLink> {
         val preferred = Settings.preferredQuality.takeIf { it > 0 } ?: Int.MAX_VALUE
         // Settings → Player → Audio language: sources whose names say it ("Hindi", "Hin", "Dual audio [Hindi + English]") first.
-        val wanted = Settings.audioLanguage.split(',').map { it.trim() }.filter { it.isNotBlank() }.map { languageName(it) }
-        fun speaks(l: ExtractorLink) = wanted.isEmpty() ||
-            io.github.decodede.potatoflix.ui.SourceFilters.tags(l.name + " " + l.source, 0).any { it in wanted }
+        val wanted = Settings.audioLanguage.split(',').map { it.trim() }.filter { it.isNotBlank() }
+        val wantedVariants = wanted.flatMap { languageVariants(it) }.distinct()
+        fun speaks(l: ExtractorLink) = wantedVariants.isEmpty() ||
+            io.github.decodede.potatoflix.ui.SourceFilters.tags(l.name + " " + l.source, 0)
+                .any { tag -> wantedVariants.any { v -> tag.lowercase().contains(v) } }
         return links.sortedWith(compareBy<ExtractorLink> { if (it.source == OfflineApi.SOURCE) 0 else 1 }
             .thenBy { if (speaks(it)) 0 else 1 }
             .thenBy { if (it.quality <= preferred) 0 else 1 }
