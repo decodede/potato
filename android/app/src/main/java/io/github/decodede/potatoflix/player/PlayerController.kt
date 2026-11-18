@@ -732,7 +732,7 @@ class PlayerController(
         }
         val text = SubtitleStyle.decode(bytes)
         if (text.isBlank()) return s
-        val isAss = Regex("(?im)^\\s*\[script info\]|^\\s*Dialogue[: ]").containsMatchIn(text)
+        val isAss = Regex("""(?im)^\s*\[script info]|^\s*Dialogue[: ]""").containsMatchIn(text)
         if (isAss) {
             // ASS/SSA: ExoPlayer's SSA parser renders it (positions, colours, bold/italic) — keep as-is.
             return com.lagradost.cloudstream3.newSubtitleFile(s.lang, java.io.File(dir, "${key}ssa").apply { writeText(text) }.absolutePath)
