@@ -257,6 +257,18 @@ object Engine {
         return Links(rank(links.distinctBy { it.url }), subtitles.distinctBy { it.url })
     }
 
+    /** Language names in every form the setting and the tracks may use ("telugu" ↔ "te" ↔ "tel"). */
+    internal fun languageVariants(t: String): Set<String> = buildSet {
+        val token = t.trim().lowercase()
+        if (token.isNotEmpty()) add(token)
+        runCatching { add(java.util.Locale(token).isO3Language?.takeIf { it.isNotBlank() }?.lowercase().orEmpty()) } // "te" -> "tel"
+        runCatching { java.util.Locale(token).getDisplayLanguage(java.util.Locale.ENGLISH).lowercase().let { if (it.isNotBlank() && it != token) add(it) } }
+        java.util.Locale.getAvailableLocales().firstOrNull { it.getDisplayLanguage(java.util.Locale.ENGLISH).lowercase() == token }?.let { l ->
+            l.language.takeIf { it.isNotBlank() }?.lowercase()?.let { add(it) }
+            runCatching { l.isO3Language?.takeIf { o -> o.isNotBlank() }?.lowercase()?.let { add(it) } }
+        }
+    }
+
     /** Best first: closest to the preferred quality without exceeding it, then higher. */
     /** "hi" → "Hindi", "ja" → "Japanese"; a name stays a name. */
     fun languageName(code: String): String =
