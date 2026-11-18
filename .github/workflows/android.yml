@@ -47,7 +47,7 @@ jobs:
 
       - name: Build the APKs
         working-directory: android
-        run: ./gradlew assembleRelease --no-daemon
+        run: ./gradlew assembleRelease --no-daemon -PappVersion=1.0.${{ github.run_number }}
 
       - name: Collect the APKs
         run: |
@@ -64,21 +64,22 @@ jobs:
           name: potatoflix-android
           path: build/apk/*.apk
 
-      - name: Publish the rolling release
+      - name: Publish the release
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: potatoflix-latest
-          name: Potatoflix — latest build (${{ github.sha }})
+          tag_name: v1.0.${{ github.run_number }}
+          name: Potatoflix 1.0.${{ github.run_number }}
           body: |
-            Rolling build of Potatoflix (Android and Android TV) from `main`.
+            Potatoflix 1.0.${{ github.run_number }} (Android and Android TV), built from `main`.
 
             - `potatoflix-android-arm64-v8a.apk` — most phones and newer TVs
             - `potatoflix-android-armeabi-v7a.apk` — older Android TV boxes and Fire TV sticks
             - `potatoflix-android-x86_64.apk` / `potatoflix-android-x86.apk` — emulators
             - `potatoflix-android-universal.apk` — all of the above (larger)
 
-            Built from ${{ github.sha }}.
+            Built from ${{ github.sha }}. Installing the same-ABI APK over a previous build updates it
+            (with the release keystore secret set; without it each build must be installed fresh).
           files: build/apk/*.apk
-          overwrite_files: true
+          overwrite_files: false
           generate_release_notes: false

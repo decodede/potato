@@ -41,8 +41,8 @@ or be updated by builds from other machines).
 ## CI and releases
 
 `.github/workflows/android.yml` builds the APKs on every push to `main` and on pull requests (artifact
-`potatoflix-android`). On `main` it also creates/updates the `Potatoflix <version>` GitHub release with the APKs
-attached, named `potatoflix-android-<abi>.apk`.
+`potatoflix-android`). On `main` it also publishes a `v1.0.<run>` GitHub release with the APKs attached, named
+`potatoflix-android-<abi>.apk`; `releases/latest` is always the newest build, and the app's update check picks it up.
 
 APKs: `arm64-v8a` (most phones, newer TVs), `armeabi-v7a` (many Android TV boxes and Fire TV sticks),
 `x86_64`/`x86` (emulators, a few Chromebooks) and `universal` (all of them, larger).
