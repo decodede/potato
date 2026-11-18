@@ -956,7 +956,12 @@ class PlayerController(
     private fun percent(): Double = if (length > 0) player.currentPosition * 100.0 / length else 0.0
 
     /** True when the media itself is a live window (a cricket stream that never ends): no resume, no history. */
-    fun isLiveTimeline(): Boolean = runCatching { player.currentTimeline?.isLive() == true }.getOrDefault(false)
+    fun isLiveTimeline(): Boolean = runCatching {
+        val tl = player.currentTimeline
+        if (tl.isEmpty) return@runCatching false
+        val window = androidx.media3.common.Timeline.Window()
+        tl.getWindow(player.currentMediaItemIndex.coerceIn(0, tl.windowCount - 1), window).isLive
+    }.getOrDefault(false)
 
     private fun isLiveNow(): Boolean = isLive || isLiveTimeline()
 
