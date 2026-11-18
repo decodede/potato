@@ -172,7 +172,7 @@ object SubtitleStyle {
     }
 
     private val assTag = Regex("""\{[^}\n]*\}""")
-    private val assLineBreak = Regex("""\[Nn]""")
+    private val assLineBreak = Regex("""\\[Nn]""")
     private val assTime = Regex("""(?:(\d+):)?(\d+):(\d+)[\.,](\d{1,3})""")
 
     /** Converts a standard ASS/SSA file to SubRip text. Returns null if no Dialogue cues are found. */
@@ -197,7 +197,7 @@ object SubtitleStyle {
             val body = parts[9]
                 .replace(assTag, "")
                 .replace(assLineBreak, "\n")
-                .replace("\h", " ")
+                .replace("\\h", " ")
                 .trim()
             if (body.isBlank()) continue
             val from = (timeToMs(start) + offsetMs).coerceAtLeast(0)
