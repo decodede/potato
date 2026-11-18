@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("plugin.compose")
-    id("app.cash.paparazzi")
 }
 
 android {
@@ -162,12 +161,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
 }
 
-// Paparazzi (Android screenshots drawn on the computer: ./gradlew :app:recordPaparazziDebug) clashes with
-// Gradle's HTML test report; the XML results are kept.
+// Keep the HTML test report off: the XML results are what CI reads.
 tasks.withType<Test>().configureEach { reports.html.required.set(false) }
 
-// The torrent test runs libtorrent's native engine, which can crash the test process as it exits when it shares
-// that process with Paparazzi's renderer: it gets a process of its own, right after the other unit tests.
+// The torrent test runs libtorrent's native engine, which can crash the test process as it exits; it gets a
+// process of its own, right after the other unit tests.
 afterEvaluate {
     val unit = tasks.named<Test>("testDebugUnitTest")
     unit.configure { filter { excludeTestsMatching("*TorrentStreamingTest"); isFailOnNoMatchingTests = false } }
