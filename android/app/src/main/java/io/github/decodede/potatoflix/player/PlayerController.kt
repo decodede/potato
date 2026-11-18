@@ -235,7 +235,6 @@ class PlayerController(
     var autoPlay = Settings.autoPlay && !chooseSource
         private set
 
-    fun stopAutoPlay() { autoPlay = false }
     private val tried = mutableSetOf<String>()
     private var startAt: Long = 0
     private var watchdog: Job? = null
@@ -258,8 +257,10 @@ class PlayerController(
 
     init {
         player.addListener(listener)
-        Library.progress(api.name, playable.data)?.let { p ->
-            if (p.duration > 0 && p.position / p.duration in 0.02..0.92) startAt = (p.position * 1000).toLong()
+        if (!isLiveNow()) {
+            Library.progress(api.name, playable.data)?.let { p ->
+                if (p.duration > 0 && p.position / p.duration in 0.02..0.92) startAt = (p.position * 1000).toLong()
+            }
         }
         scope.launch { findSources() }
         saver = scope.launch {
@@ -759,17 +760,34 @@ class PlayerController(
         applyTrackVolume()
     }
 
+    /** Language names in every form the setting and the track may use ("telugu" ↔ "te" ↔ "tel"). */
+    private fun languageVariants(t: String): Set<String> = buildSet {
+        val token = t.trim().lowercase()
+        add(token)
+        runCatching { add(java.util.Locale(token).isO3Language?.takeIf { it.isNotBlank() }?.lowercase().orEmpty()) } // "te" -> "tel"
+        runCatching { java.util.Locale(token).getDisplayLanguage(java.util.Locale.ENGLISH).lowercase().let { if (it.isNotBlank() && it != token) add(it) } }
+        java.util.Locale.getAvailableLocales().firstOrNull { it.getDisplayLanguage(java.util.Locale.ENGLISH).lowercase() == token }?.let { l ->
+            l.language.takeIf { it.isNotBlank() }?.lowercase()?.let { add(it) }
+            runCatching { l.isO3Language?.takeIf { o -> o.isNotBlank() }?.lowercase()?.let { add(it) } }
+        }
+    }
+
+    private fun matchesWanted(label: String?, code: String?, wanted: List<String>): Boolean {
+        val text = listOfNotNull(label, code).joinToString(" ").lowercase()
+        return wanted.any { w -> languageVariants(w).any { v -> v.isNotBlank() && text.contains(v) } }
+    }
+
     /** Picks the audio and subtitle languages from Settings → Player, once per playback. */
     private fun applyLanguages() {
         val audio = Settings.audioLanguage.split(',').map { it.trim() }.filter { it.isNotBlank() }
-        if (audio.isNotEmpty()) audioRefs().filter { r -> audio.any { w -> trackLabel(r).contains(w, ignoreCase = true) || io.github.decodede.potatoflix.OnlineSubtitles.matches(trackLabel(r), w) } }
-            .firstOrNull()?.let { r -> audioKey = trackKey(r); applyAudioSelection() }
+        if (audio.isNotEmpty()) audioRefs().firstOrNull { r -> matchesWanted(r.label, r.language, audio) }
+            ?.let { r -> audioKey = trackKey(r); applyAudioSelection() }
         val subs = Settings.subtitleLanguage.split(',').map { it.trim() }.filter { it.isNotBlank() }
         if (subs.isEmpty() || selectedSubtitle != null) return
-        val embedded = textTrackRefs().firstOrNull { r -> subs.any { w -> trackLabel(r).contains(w, ignoreCase = true) } }
+        val embedded = textTrackRefs().firstOrNull { r -> matchesWanted(r.label, r.language, subs) }
         if (embedded != null) { textKey = trackKey(embedded); applyTextSelection(); return }
         // An external subtitle in the right language: added by the Subtitles flow; pick it if it arrives.
-        subtitles.firstOrNull { s -> subs.any { w -> io.github.decodede.potatoflix.OnlineSubtitles.matches(s.lang, w) } }?.let { s ->
+        subtitles.firstOrNull { s -> subs.any { w -> io.github.decodede.potatoflix.OnlineSubtitles.matches(s.lang, w) || languageVariants(w).any { v -> s.lang.lowercase().contains(v) } } }?.let { s ->
             selectedSubtitle = s.url
             addSubtitle(s)
         }
@@ -937,9 +955,14 @@ class PlayerController(
     private val trakr by lazy { if (isLive) null else io.github.decodede.potatoflix.WeTrakr.Session(response, playable.season, playable.episode) }
     private fun percent(): Double = if (length > 0) player.currentPosition * 100.0 / length else 0.0
 
+    /** True when the media itself is a live window (a cricket stream that never ends): no resume, no history. */
+    fun isLiveTimeline(): Boolean = runCatching { player.currentTimeline?.isLive() == true }.getOrDefault(false)
+
+    private fun isLiveNow(): Boolean = isLive || isLiveTimeline()
+
     fun save(finished: Boolean = false) {
         if (finished) trakr?.stopped(100.0)
-        if (isLive || !started) return
+        if (isLive || !started || isLiveTimeline()) return
         val len = length.takeIf { it > 0 } ?: return
         val pos = if (finished) len else player.currentPosition
         Library.record(WatchEntry(

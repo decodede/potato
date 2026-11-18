@@ -134,8 +134,9 @@ private fun Details(api: MainAPI, r: LoadResponse) {
         kotlinx.coroutines.delay(1200)
         io.github.decodede.potatoflix.Engine.prefetch(api, t.data)
     }
-    var season by remember(r) { mutableStateOf(target?.season ?: seasons.keys.firstOrNull()) }
-    val episodes = seasons[season].orEmpty()
+    val seasonKeys = remember(seasons) { seasons.keys.toList().sortedBy { it ?: Int.MAX_VALUE } }
+    var season by remember(r) { mutableStateOf(target?.season ?: seasonKeys.firstOrNull()) }
+    val episodes = seasons[season].orEmpty().sortedBy { it.episode ?: Int.MAX_VALUE }
     val bookmarked = remember(libraryVersion, r) { Library.isBookmarked(api.name, r.url) }
     val allWatched = remember(libraryVersion, r) { playables.isNotEmpty() && playables.all { Library.isWatched(api.name, it.data) } }
     val playFocus = remember { FocusRequester() }
@@ -270,7 +271,7 @@ private fun Details(api: MainAPI, r: LoadResponse) {
                             Text("Episodes", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(end = 14.dp))
                         }
                         if (dubs.size > 1) Chips(dubs.map { (it ?: "Default") to null }, dubs.indexOf(dub), edge) { dub = dubs[it] }
-                        val keys = seasons.keys.toList()
+                        val keys = seasonKeys
                         if (keys.size > 1 || keys.firstOrNull() != null) Chips(
                             keys.map { k -> (k?.let { "Season $it" } ?: "Episodes") to seasons[k]!!.size }, keys.indexOf(season), edge,
                         ) { season = keys[it] }

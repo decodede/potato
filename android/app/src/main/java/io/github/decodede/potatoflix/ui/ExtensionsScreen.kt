@@ -73,6 +73,7 @@ fun ExtensionsScreen() {
     val version by PluginManager.version.collectAsState()
     var repos by remember { mutableStateOf(RepositoryManager.getRepositories()) }
     val installed = remember(version) { PluginManager.installed().sortedBy { (it.name ?: it.internalName).lowercase() } }
+    val repoIcons = remember(repos) { repos.mapNotNull { it.iconUrl?.takeIf { u -> u.isNotBlank() }?.let { icon -> it.url to icon } }.toMap() }
     var adding by remember { mutableStateOf(PendingRepo.url != null) }
     var busy by remember { mutableStateOf(false) }
 
@@ -130,7 +131,12 @@ fun ExtensionsScreen() {
                     style = MaterialTheme.typography.bodyMedium)
             }
             uniqueItems(repos, key = { "repo|${it.url}" }) { repo ->
+                var settingsOpen by remember(repo.url) { mutableStateOf(false) }
+                if (settingsOpen) RepoSettingsDialog(repo,
+                    onDismiss = { settingsOpen = false },
+                    onChanged = { repos = RepositoryManager.getRepositories(); PluginManager.bumpVersion() })
                 ListRow(repo.name, repo.description ?: repo.url, repo.iconUrl, onClick = { Nav.open(Screen.Repository(repo.url, repo.name)) }) {
+                    IconAction(Icons.Filled.Settings, "Repository settings") { settingsOpen = true }
                     IconAction(Icons.Filled.Delete, "Remove") {
                         RepositoryManager.removeRepository(repo.url)
                         repos = RepositoryManager.getRepositories()
@@ -145,14 +151,15 @@ fun ExtensionsScreen() {
                 val loaded = PluginManager.loaded.values.firstOrNull { it.data.internalName == data.internalName }
                 val detail = when {
                     failure != null -> "Failed to load: ${failure.message ?: failure}"
-                    loaded != null -> listOf("v${loaded.data.version}", loaded.providers.joinToString { it.name }.ifBlank { null }).filterNotNull().joinToString(" · ")
+                    loaded != null -> listOfNotNull(data.language?.uppercase(), "v${loaded.data.version}", loaded.providers.joinToString { it.name }.ifBlank { null }).joinToString(" · ")
                     else -> "Loading…"
                 }
                 // The extension's own settings (some, like Eclipsia, have a limit per provider, timeouts, which
                 // scrapers to use…), opened like the official app's gear button.
                 val settings = (loaded?.instance as? com.lagradost.cloudstream3.plugins.Plugin)?.openSettings
                 val ctx = LocalContext.current
-                ListRow(data.name ?: data.internalName, detail, null, warning = failure != null) {
+                val icon = data.iconUrl ?: data.repositoryUrl?.let { repoIcons[it] }
+                ListRow(data.name ?: data.internalName, detail, icon, warning = failure != null) {
                     if (settings != null) IconAction(Icons.Filled.Settings, "Settings") {
                         val activity = ctx.findActivity() ?: ctx
                         runCatching { settings.invoke(activity) }
@@ -284,6 +291,11 @@ fun RepositoryScreen(screen: Screen.Repository) {
                 item {
                     ExtensionSearch(query, "Search ${plugins.orEmpty().size} extensions (name, language, type)") { query = it }
                 }
+                item {
+                    val fromHere = plugins.orEmpty().count { installed.containsKey(it.plugin.internalName) }
+                    Text("$fromHere/${plugins.orEmpty().size} installed from this repository",
+                        style = MaterialTheme.typography.titleSmall, color = Palette.muted, modifier = Modifier.padding(bottom = 4.dp))
+                }
                 if (shown.isEmpty()) item { Text("No extensions match \"$query\".", style = MaterialTheme.typography.bodyMedium, color = Palette.muted) }
                 if (query.isBlank()) item {
                     PillButton("Install all", Icons.Filled.Download, Modifier.padding(bottom = 8.dp)) {
@@ -369,4 +381,63 @@ private fun StremioTab() {
             }
         }
     }
+}
+
+/** Repository settings: update everything from this repository, remove its installed extensions, or remove it. */
+@Composable
+private fun RepoSettingsDialog(repo: RepositoryData, onDismiss: () -> Unit, onChanged: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    val version by PluginManager.version.collectAsState()
+    val installedHere = remember(version, repo.url) { PluginManager.installed().filter { it.repositoryUrl == repo.url } }
+    var confirmUninstall by remember { mutableStateOf(false) }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(repo.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(repo.description ?: repo.url, style = MaterialTheme.typography.bodySmall, color = Palette.muted)
+                Text("${installedHere.size} installed from this repository.", style = MaterialTheme.typography.bodyMedium)
+                if (busy) Spinner(Modifier.fillMaxWidth().height(48.dp))
+                PillButton("Update from this repository", Icons.Filled.Refresh, primary = false, compact = true) {
+                    busy = true
+                    scope.launch {
+                        val repoPlugins = withContext(Dispatchers.IO) { RepositoryManager.getRepoPlugins(repo) }.orEmpty()
+                        val latest = repoPlugins.associateBy { it.plugin.internalName }
+                        installedHere.forEach { data ->
+                            latest[data.internalName]?.let { w ->
+                                if (w.plugin.version > data.version) withContext(Dispatchers.IO) { PluginManager.install(w) }
+                            }
+                        }
+                        busy = false
+                        onChanged()
+                        App.toast("Updated from ${repo.name}")
+                    }
+                }
+                if (!confirmUninstall) {
+                    PillButton("Remove installed from this repository", Icons.Filled.Delete, primary = false, compact = true) { confirmUninstall = true }
+                } else {
+                    Text("This uninstalls ${installedHere.size} extension(s) from this repository.", color = Palette.accent)
+                    PillButton("Confirm remove (${installedHere.size})", Icons.Filled.Delete, compact = true) {
+                        busy = true
+                        scope.launch {
+                            installedHere.forEach { data -> withContext(Dispatchers.IO) { PluginManager.uninstall(data.internalName) } }
+                            busy = false
+                            confirmUninstall = false
+                            onChanged()
+                            App.toast("Removed ${installedHere.size} extension(s)")
+                        }
+                    }
+                    PillButton("Cancel", null, primary = false, compact = true) { confirmUninstall = false }
+                }
+                PillButton("Remove this repository", Icons.Filled.Delete, primary = false, compact = true) {
+                    RepositoryManager.removeRepository(repo.url)
+                    onChanged()
+                    onDismiss()
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { Text("Done") } },
+    )
 }

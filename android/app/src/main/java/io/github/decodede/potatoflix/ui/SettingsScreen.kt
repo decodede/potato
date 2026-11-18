@@ -34,6 +34,11 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.ClosedCaption
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
@@ -127,7 +132,7 @@ fun SettingsScreen() {
                 }
             }
         }
-        if (wide) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(24.dp).widthIn(max = 760.dp)) {
+        if (wide) Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()).padding(20.dp).widthIn(max = 760.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) {
             Text(selected.title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 12.dp))
             SectionContent(selected)
         }
@@ -140,7 +145,7 @@ fun SettingsPageScreen(screen: Screen.SettingsPage) {
     val section = Section.valueOf(screen.section)
     Column(Modifier.fillMaxSize()) {
         BackBar(section.title)
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)) { SectionContent(section) }
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(2.dp)) { SectionContent(section) }
     }
 }
 
@@ -261,17 +266,17 @@ private fun PlayerSection() {
     }
     Hint(if (autoPlay) "Starts as soon as a decent source is found." else "The sources list opens when you press Play.")
     var next by remember { mutableStateOf(Settings.autoPlayNext) }
-    SwitchRow("Next episode automatically", "From the credits, with a countdown; Back cancels.", next) { next = it; Settings.autoPlayNext = it }
+    SwitchRow("Next episode automatically", "From the credits, with a countdown; Back cancels.", next, icon = Icons.Filled.SkipNext) { next = it; Settings.autoPlayNext = it }
     var skipBtns by remember { mutableStateOf(Settings.skipButtons) }
-    SwitchRow("Skip intro buttons (anime)", "Intro, recap and credits times from AniSkip.", skipBtns) { skipBtns = it; Settings.skipButtons = it }
+    SwitchRow("Skip intro buttons (anime)", "Intro, recap and credits times from AniSkip.", skipBtns, icon = Icons.Filled.ClosedCaption) { skipBtns = it; Settings.skipButtons = it }
     var autoSkip by remember { mutableStateOf(Settings.autoSkip) }
-    SwitchRow("Skip intros automatically (anime)", null, autoSkip) { autoSkip = it; Settings.autoSkip = it }
+    SwitchRow("Skip intros automatically (anime)", null, autoSkip, icon = Icons.Filled.SkipNext) { autoSkip = it; Settings.autoSkip = it }
 
     Heading("Quality")
     var quality by remember { mutableStateOf(Settings.preferredQuality) }
     ChoiceChips(listOf(0, 2160, 1080, 720, 480), { if (it == 0) "Best" else "${it}p" }, { it == quality }) { quality = it; Settings.preferredQuality = it }
     var prepare by remember { mutableStateOf(Settings.prepareSources) }
-    SwitchRow("Find sources before Play", "Looks them up in the background when you open a title's page; kept for 20 minutes.", prepare) { prepare = it; Settings.prepareSources = it }
+    SwitchRow("Find sources before Play", "Looks them up in the background when you open a title's page; kept for 20 minutes.", prepare, icon = Icons.Filled.Download) { prepare = it; Settings.prepareSources = it }
 
     Heading("Picture")
     if (!isTv) {
@@ -282,7 +287,7 @@ private fun PlayerSection() {
         }
     }
     var autoRotate by remember { mutableStateOf(Settings.autoRotatePortrait) }
-    SwitchRow("Auto-rotate vertical videos", "Vertical videos play in portrait and back, without rotating anything.", autoRotate) {
+    SwitchRow("Auto-rotate vertical videos", "Vertical videos play in portrait and back, without rotating anything.", autoRotate, icon = Icons.Filled.ScreenRotation) {
         autoRotate = it; Settings.autoRotatePortrait = it
     }
     var zoomMode by remember { mutableStateOf(Settings.playerZoom) }
@@ -310,7 +315,7 @@ private fun PlayerSection() {
         label = { Text("Or type codes, in order, e.g. hi,en") })
     Hint("Sources whose names say this language come first; in a source with several audio tracks, this one is picked.")
     var level by remember { mutableStateOf(Settings.levelAudio) }
-    SwitchRow("Even out loud and quiet sounds", "Voices clearer, background quieter. Also in the player's Audio menu.", level) {
+    SwitchRow("Even out loud and quiet sounds", "Voices clearer, background quieter. Also in the player's Audio menu.", level, icon = Icons.AutoMirrored.Filled.VolumeUp) {
         level = it; Settings.levelAudio = it
     }
 

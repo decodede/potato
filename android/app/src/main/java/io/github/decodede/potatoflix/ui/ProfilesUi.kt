@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -279,12 +280,15 @@ fun SimpleDialog(
 fun Color.compositeOverBackground(): Color = if (alpha >= 1f) this else androidx.compose.ui.graphics.lerp(Palette.background, this.copy(alpha = 1f), alpha * 2.5f)
 
 @Composable
-fun SwitchRow(title: String, text: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().card(RoundedCornerShape(10.dp), focusScale = 1.02f) { onChange(!checked) }.padding(horizontal = 4.dp, vertical = 10.dp),
+fun SwitchRow(title: String, text: String?, checked: Boolean, onChange: (Boolean) -> Unit, icon: ImageVector? = null) {
+    Row(Modifier.fillMaxWidth().card(RoundedCornerShape(10.dp), focusScale = 1.02f) { onChange(!checked) }.padding(horizontal = 4.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            Icon(icon, null, tint = Palette.muted, modifier = Modifier.size(21.dp).padding(end = 12.dp))
+        }
         Column(Modifier.weight(1f).padding(end = 12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            text?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            text?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Palette.muted) }
         }
         Switch(checked, onCheckedChange = null, colors = SwitchDefaults.colors(checkedTrackColor = Palette.accent))
     }

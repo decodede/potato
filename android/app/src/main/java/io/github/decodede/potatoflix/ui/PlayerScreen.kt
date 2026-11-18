@@ -275,7 +275,7 @@ fun PlayerScreen(screen: Screen.Player) {
         }
 
         if (!c.started) {
-            LoadingOverlay(c, onChoose = { c.stopAutoPlay(); sheet = Sheet.SOURCES })
+            LoadingOverlay(c)
         } else {
             if (!isTv) Gestures(locked, onTap = { controls = !controls; poke++ }, onSeek = { c.seekBy(it); poke++ }, onPinch = { pinch = (pinch * it).coerceIn(1f, 4f) })
             // TV with a mouse: a click on the picture shows the controls (and settings buttons), another hides them.
@@ -534,9 +534,9 @@ private fun BarButton(icon: ImageVector, label: String, accent: Boolean = false,
     }
 }
 
-/** Before playback: artwork, how many sources were found, and Play now / Choose source / Cancel. */
+/** Before playback: artwork, status and the number of sources found; a single Skip button. */
 @Composable
-private fun LoadingOverlay(c: PlayerController, onChoose: () -> Unit) {
+private fun LoadingOverlay(c: PlayerController) {
     Box(Modifier.fillMaxSize()) {
         NetImage(c.response.backgroundPosterUrl ?: c.response.posterUrl, Modifier.fillMaxSize(), c.response.posterHeaders)
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)))
@@ -551,7 +551,7 @@ private fun LoadingOverlay(c: PlayerController, onChoose: () -> Unit) {
                 c.current != null -> "Starting ${c.current!!.name}…"
                 c.searching -> "Looking for sources…"
                 c.links.isEmpty() -> c.searchError ?: "No sources found"
-                else -> "Pick a source"
+                else -> "Starting…"
             }
             Row(Modifier.fillMaxWidth()) {
                 Text(status, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -559,14 +559,9 @@ private fun LoadingOverlay(c: PlayerController, onChoose: () -> Unit) {
             }
             if (c.searching || c.current != null) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 10.dp), color = Palette.accent, trackColor = Color.White.copy(alpha = 0.15f))
             else Spacer(Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 12.dp)) {
-                // While a source is starting, "Play now" would only restart it: offer the next one instead.
-                if (c.current != null) PillButton("Next source", Icons.Filled.SkipNext) { c.nextSource() }
-                else if (c.links.isNotEmpty()) PillButton(if (c.searching) "Play now (${c.links.size})" else "Play now", Icons.Filled.PlayArrow) { c.ranked().firstOrNull()?.let { c.play(it) } }
-                if (c.links.isNotEmpty()) PillButton("Choose source", Icons.AutoMirrored.Filled.List, primary = false) { onChoose() }
-                PillButton("Cancel", null, primary = false) { Nav.back() }
-            }
-        }
+            // Like the official player: no choices here, just a quiet Skip back button.
+            PillButton("Skip", null, primary = false, compact = true, modifier = Modifier.padding(top = 8.dp)) { Nav.back() }
+    }
     }
 }
 

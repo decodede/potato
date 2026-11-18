@@ -36,6 +36,8 @@ object Nav {
 
     /** Text typed into Search, kept when leaving the tab. */
     var searchQuery by mutableStateOf("")
+    /** Where Back goes when the stack is empty (the tabs you came from). */
+    private val tabHistory: ArrayDeque<Tab> = ArrayDeque()
     /** The search that ran (Enter or a suggestion); typing alone only shows suggestions. */
     var searchSubmitted by mutableStateOf("")
     /** Search only this extension (Home's Search button); null searches every extension (the Search tab). */
@@ -70,7 +72,7 @@ object Nav {
             return true
         }
         if (tab != Tab.HOME) {
-            tab = Tab.HOME
+            tab = tabHistory.removeLastOrNull() ?: Tab.HOME
             return true
         }
         return false
@@ -81,6 +83,10 @@ object Nav {
         if (tab == Tab.SEARCH) searchScope = null
         // Kids profiles have no Settings or Extensions pages unless a parent unlocks them.
         io.github.decodede.potatoflix.GlitchReport.step("Tab ${tab.label}")
+        if (this.tab != tab) {
+            tabHistory.addLast(this.tab)
+            while (tabHistory.size > 50) tabHistory.removeFirst()
+        }
         if (tab == Tab.EXTENSIONS || tab == Tab.MORE) ProfileUi.guarded { stack.clear(); this.tab = tab }
         else { stack.clear(); this.tab = tab }
     }
