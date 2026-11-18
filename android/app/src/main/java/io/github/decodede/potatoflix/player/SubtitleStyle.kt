@@ -206,7 +206,7 @@ object SubtitleStyle {
             n++
             out.append(n).append('\n')
                 .append(msToTime(from, ',', 3)).append(" --> ").append(msToTime(to, ',', 3)).append('\n')
-                .append(body).append('\n\n')
+                .append(body).append("\n\n")
         }
         return out.takeIf { n > 0 }?.toString()
     }
