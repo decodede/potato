@@ -1,0 +1,7 @@
+.gradle/
+build/
+upstream/
+*.cs3
+.idea/
+local.properties
+.kotlin/
