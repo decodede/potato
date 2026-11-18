@@ -4,8 +4,8 @@ import android.content.DialogInterface
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AlertDialog
-import io.github.sherazi5110.cloudstream.ui.Nav
-import io.github.sherazi5110.cloudstream.ui.Screen
+import io.github.decodede.potatoflix.ui.Nav
+import io.github.decodede.potatoflix.ui.Screen
 
 /** The official app's AppContextUtils, as far as extensions use it: open a title page, focus a dialog button. */
 object AppContextUtils {

@@ -25,12 +25,12 @@
         android:theme="@style/Theme.Potatoflix">
 
         <service
-            android:name="io.github.sherazi5110.cloudstream.DownloadService"
+            android:name="io.github.decodede.potatoflix.DownloadService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
 
         <activity
-            android:name="io.github.sherazi5110.cloudstream.MainActivity"
+            android:name="io.github.decodede.potatoflix.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"

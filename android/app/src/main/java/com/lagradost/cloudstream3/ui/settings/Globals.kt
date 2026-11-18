@@ -2,7 +2,7 @@ package com.lagradost.cloudstream3.ui.settings
 
 import android.content.res.Configuration
 import android.content.res.Resources
-import io.github.sherazi5110.cloudstream.App
+import io.github.decodede.potatoflix.App
 
 /** The official app's layout flags (ui/settings/Globals.kt): extensions check TV vs phone with isLayout(TV). */
 object Globals {

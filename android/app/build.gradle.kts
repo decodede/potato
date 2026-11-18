@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "io.github.sherazi5110.cloudstream"
+    namespace = "io.github.decodede.potatoflix"
     compileSdk = 36
 
     defaultConfig {

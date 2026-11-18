@@ -12,7 +12,7 @@ import com.lagradost.cloudstream3.utils.DataStore.getKeys
 import com.lagradost.cloudstream3.utils.DataStore.removeKey
 import com.lagradost.cloudstream3.utils.DataStore.removeKeys
 import com.lagradost.cloudstream3.utils.DataStore.setKey
-import io.github.sherazi5110.cloudstream.App
+import io.github.decodede.potatoflix.App
 
 /**
  * The application class. It keeps upstream's name and companion API
@@ -33,7 +33,7 @@ class CloudStreamApp : Application(), coil3.SingletonImageLoader.Factory {
      */
     override fun newImageLoader(context: coil3.PlatformContext): coil3.ImageLoader {
         val app = context as Context
-        val low = io.github.sherazi5110.cloudstream.player.DeviceTier.tier == io.github.sherazi5110.cloudstream.player.DeviceTier.Tier.LOW
+        val low = io.github.decodede.potatoflix.player.DeviceTier.tier == io.github.decodede.potatoflix.player.DeviceTier.Tier.LOW
         return coil3.ImageLoader.Builder(context)
             .components { add(coil3.network.okhttp.OkHttpNetworkFetcherFactory({ com.lagradost.cloudstream3.app.baseClient })) }
             .memoryCache(coil3.memory.MemoryCache.Builder()

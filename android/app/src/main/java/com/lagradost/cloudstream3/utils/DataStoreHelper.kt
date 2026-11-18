@@ -12,7 +12,7 @@ import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.ui.WatchType
 import com.lagradost.cloudstream3.ui.result.VideoWatchState
 import com.lagradost.cloudstream3.utils.downloader.DownloadObjects
-import io.github.sherazi5110.cloudstream.Profiles
+import io.github.decodede.potatoflix.Profiles
 
 /**
  * The official app's DataStoreHelper, as far as extensions use it (Ultima, WatchParty): its "accounts" are this

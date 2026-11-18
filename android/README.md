@@ -52,9 +52,8 @@ APKs: `arm64-v8a` (most phones, newer TVs), `armeabi-v7a` (many Android TV boxes
 - `cs-library/`: CloudStream's `library` module (the extension API) compiled for Android from `../upstream`,
   like the official app. YouTube is resolved with NewPipe Extractor.
 - `app/src/main/java/com/lagradost/cloudstream3/`: the app-module classes extensions link against
-  (`CloudStreamApp`, `DataStore`, `plugins.Plugin`, `CommonActivity`), with upstream's names and signatures.
-- `app/src/main/java/io/github/sherazi5110/cloudstream/`: the app (Kotlin packages kept from upstream for
-  compatibility; only what the user sees is Potatoflix). Extensions (`.cs3`) load natively with a
+  (`CloudStreamApp`, `DataStore`, `plugins.Plugin`, `CommonActivity`), with upstream's (CloudStream's) names and signatures.
+- `app/src/main/java/io/github/decodede/potatoflix/`: the app. Extensions (`.cs3`) load natively with a
   `PathClassLoader`, as in the official app.
 - `ui/`: the Jetpack Compose UI (Home, Search, title page, My list, Extensions, player, settings). `player/`:
   AndroidX Media3 (ExoPlayer) with this app's own controls (libVLC is gone).

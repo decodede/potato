@@ -8,8 +8,8 @@ import com.lagradost.cloudstream3.ui.settings.extensions.RepositoryData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
-import io.github.sherazi5110.cloudstream.PluginManager as AppPlugins
-import io.github.sherazi5110.cloudstream.RepositoryManager as AppRepos
+import io.github.decodede.potatoflix.PluginManager as AppPlugins
+import io.github.decodede.potatoflix.RepositoryManager as AppRepos
 
 // The official app's plugin classes, with its names and signatures, for extensions that manage other
 // extensions (Ultima, StreamPlay, StremioX). They work on this app's own extension manager.
@@ -127,7 +127,7 @@ object RepositoryManager {
      */
     suspend fun addRepository(repository: RepositoryData) {
         val added = AppRepos.addRepositoryData(
-            io.github.sherazi5110.cloudstream.RepositoryData(repository.iconUrl, repository.name, repository.url, repository.description)
+            io.github.decodede.potatoflix.RepositoryData(repository.iconUrl, repository.name, repository.url, repository.description)
         )
         if (added) AppPlugins.bumpVersion()
     }

@@ -1,7 +1,7 @@
 package com.lagradost.cloudstream3.ui.home
 
 import com.lagradost.cloudstream3.utils.DataStoreHelper
-import io.github.sherazi5110.cloudstream.Library
+import io.github.decodede.potatoflix.Library
 
 /** The official app's home view model, as far as extensions use it (Ultima, WatchParty): Continue Watching. */
 class HomeViewModel {
