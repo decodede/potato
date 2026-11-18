@@ -78,7 +78,7 @@ fun ExtensionsScreen() {
     androidx.compose.runtime.LaunchedEffect(version, repos) {
         kotlinx.coroutines.coroutineScope {
             repos.forEach { repo ->
-                kotlinx.coroutines.launch(Dispatchers.IO) {
+                launch(Dispatchers.IO) {
                     val list = RepositoryManager.getRepoPlugins(repo).orEmpty()
                     val alive = list.filter { it.plugin.status != 0 }
                     val have = alive.count { installedNames.contains(it.plugin.internalName) }
