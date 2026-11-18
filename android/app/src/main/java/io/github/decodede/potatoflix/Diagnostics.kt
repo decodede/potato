@@ -74,8 +74,8 @@ object AppLog {
     private val lines = java.util.ArrayDeque<String>(CAP + 1)
     private val timeFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
     /** Bumped on every line, so the Logs screen recomposes. */
-    var version by androidx.compose.runtime.mutableIntStateOf(0)
-        private set
+    private val state = androidx.compose.runtime.mutableIntStateOf(0)
+    val version: Int get() = state.intValue
 
     private fun add(level: Char, tag: String, msg: String?, t: Throwable?) {
         val raw = buildString {
@@ -86,7 +86,7 @@ object AppLog {
             while (lines.size >= CAP) lines.removeFirst()
             lines.addLast(raw)
         }
-        version++
+        state.intValue++
     }
 
     fun i(tag: String, msg: String?) = add('I', tag, msg, null)
@@ -94,5 +94,5 @@ object AppLog {
     fun e(tag: String, msg: String?, t: Throwable? = null) = add('E', tag, msg, t)
 
     fun all(): List<String> = synchronized(lines) { lines.toList() }
-    fun clear() { synchronized(lines) { lines.clear() }; version++ }
+    fun clear() { synchronized(lines) { lines.clear() }; state.intValue++ }
 }

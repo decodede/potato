@@ -559,8 +559,7 @@ class PlayerController(
 
         io.github.decodede.potatoflix.CrashReport.playing("${api.name}: ${response.name} (${playable.label}); source ${link.name} [${link.type}] from " +
             "${runCatching { android.net.Uri.parse(link.url).host }.getOrNull() ?: "?"}")
-        io.github.decodede.potatoflix.GlitchReport.step("Playing source ${link.name} [${link.type}] from ${runCatching { android.net.Uri.parse(link.url).host }.getOrNull() ?: "?"}" +
-            (variant?.let { " at ${it.label}" } ?: ""))
+        io.github.decodede.potatoflix.GlitchReport.step("Playing source ${link.name} [${link.type}] from ${runCatching { android.net.Uri.parse(link.url).host }.getOrNull() ?: "?"}")
 
         player.setMediaSource(mediaSource)
         player.prepare()
