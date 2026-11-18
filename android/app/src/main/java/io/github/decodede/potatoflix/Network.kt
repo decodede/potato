@@ -41,7 +41,7 @@ object Network {
     val cookies by lazy { PersistentCookieJar(File(App.context.filesDir, "network/cookies.json")) }
 
     fun init() {
-        val cache = Cache(File(App.context.cacheDir, "http_cache"), 100L * 1024 * 1024)
+        val cache = Cache(File(App.context.cacheDir, "http_cache"), 32L * 1024 * 1024)
         val dispatcher = Dispatcher().apply {
             maxRequests = 128
             maxRequestsPerHost = 16
@@ -82,7 +82,7 @@ object Network {
                     doh.lookup(hostname)
                 } catch (e: IOException) {
                     if (!fallback) throw e
-                    Log.w("dns", "DNS-over-HTTPS failed for $hostname ($e); using system DNS for 60 s")
+                    io.github.decodede.potatoflix.AppLog.w("dns", "DNS-over-HTTPS failed for $hostname ($e); using system DNS for 60 s")
                     degradedUntil = System.currentTimeMillis() + 60_000
                     Dns.SYSTEM.lookup(hostname)
                 }
@@ -125,7 +125,7 @@ class PersistentCookieJar(private val file: File) : CookieJar {
                     .build()
                 if (cookie.expiresAt > System.currentTimeMillis()) put(cookie, persist = true)
             }
-        }.onFailure { Log.w("cookies", "couldn't read cookie store: $it") }
+        }.onFailure { io.github.decodede.potatoflix.AppLog.w("cookies", "couldn't read cookie store: $it") }
     }
 
     private fun key(c: Cookie) = "${c.domain}|${c.path}|${c.name}"

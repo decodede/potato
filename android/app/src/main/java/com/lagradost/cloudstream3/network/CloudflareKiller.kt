@@ -63,7 +63,7 @@ class CloudflareKiller : Interceptor {
                 } else {
                     response.close()
                     bypassCloudflare(request)?.let {
-                        Log.d(TAG, "Succeeded bypassing cloudflare: ${request.url}")
+                        io.github.decodede.potatoflix.AppLog.i("CloudflareKiller", "bypassed for ${request.url}")
                         return@runBlocking it
                     }
                 }
@@ -116,7 +116,7 @@ class CloudflareKiller : Interceptor {
         // If no cookies then try to get them
         // Remove this if statement if cookies expire
         if (!trySolveWithSavedCookies(request)) {
-            Log.d(TAG, "Loading webview to solve cloudflare for ${request.url}")
+            io.github.decodede.potatoflix.AppLog.i("CloudflareKiller", "loading webview for ${request.url}")
             WebViewResolver(
                 // Never exit based on url
                 Regex(".^"),

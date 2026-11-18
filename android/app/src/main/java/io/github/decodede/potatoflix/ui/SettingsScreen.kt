@@ -34,8 +34,12 @@ import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Star
@@ -79,6 +83,7 @@ enum class Section(val title: String, val text: String, val icon: ImageVector) {
     METADATA("Metadata & integrations", "TMDB, IMDb ratings, AniList", Icons.Filled.Star),
     NETWORK("Network", "DNS over HTTPS, cookies", Icons.Filled.Public),
     ABOUT("About", "Version, source code", Icons.Filled.Info),
+    LOGS("Logs", "Recent app events: loading, playing, errors", Icons.Filled.BugReport),
 }
 
 /** Settings (the "More" tab on phones): sections in a list; on wide screens the section shows beside it. */
@@ -86,14 +91,22 @@ enum class Section(val title: String, val text: String, val icon: ImageVector) {
 fun SettingsScreen() {
     var selected by remember { mutableStateOf(Section.PROFILES) }
     val wide = isWide
+    var query by remember { mutableStateOf("") }
+    val q = query.trim().lowercase()
+    val shown = if (q.isBlank()) Section.entries.toList()
+        else Section.entries.filter { it.title.lowercase().contains(q) || it.text.lowercase().contains(q) || SECTION_KEYWORDS[it].orEmpty().any { k -> k.contains(q) } }
     Row(Modifier.fillMaxSize().statusBarsPadding()) {
         Column(Modifier.then(if (wide) Modifier.width(300.dp) else Modifier.fillMaxWidth()).fillMaxHeight()
             .verticalScroll(rememberScrollState()).padding(16.dp).padding(bottom = LocalBottomInset.current), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 6.dp)) {
                 Text("Settings", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                 if (!wide) ProfileButton(32.dp)
             }
-            Section.entries.forEach { s ->
+            OutlinedTextField(query, { query = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                placeholder = { Text("Search settings") },
+                leadingIcon = { Icon(Icons.Filled.Search, null) })
+            if (shown.isEmpty()) Text("No matching settings", color = Palette.muted, modifier = Modifier.padding(vertical = 16.dp))
+            shown.forEach { s ->
                 val on = wide && s == selected
                 Row(
                     Modifier.fillMaxWidth().card(RoundedCornerShape(10.dp), focusScale = 1.02f) {
@@ -131,6 +144,22 @@ fun SettingsPageScreen(screen: Screen.SettingsPage) {
     }
 }
 
+/** Search keywords per section, for the box above the list (lowercase substrings). */
+private val SECTION_KEYWORDS: Map<Section, List<String>> = mapOf(
+    Section.EXTENSIONS to listOf("repository", "repo", "plugin", "extension", "add-on", "stremio", "install", "update"),
+    Section.PROVIDERS to listOf("language", "media type", "auto update", "test extension", "provider", "source show"),
+    Section.GENERAL to listOf("download", "connection", "background", "site", "clone", "proxy", "cache", "storage", "clear"),
+    Section.BACKUP to listOf("backup", "restore", "drive", "update", "version", "sync"),
+    Section.PROFILES to listOf("profile", "kids", "pin", "nsfw", "adult"),
+    Section.APPEARANCE to listOf("theme", "dark", "amoled", "midnight", "glass", "accent", "colour", "color", "banner", "spoiler", "presets", "layout"),
+    Section.PLAYER to listOf("playback", "quality", "codec", "decoder", "buffer", "4k", "subtitle", "audio", "language", "rotate", "vertical", "zoom", "next episode", "skip", "torrent", "volume", "brightness", "hdr", "speed", "sync", "auto"),
+    Section.WETRAKR to listOf("wetrakr", "scrobbl", "track", "watching"),
+    Section.METADATA to listOf("tmdb", "imdb", "rating", "anilist", "metadata", "trakt"),
+    Section.NETWORK to listOf("dns", "doh", "cookie", "network", "proxy", "certificate"),
+    Section.ABOUT to listOf("version", "about", "report", "github", "source", "license", "glitch"),
+    Section.LOGS to listOf("log", "logs", "crash", "error", "debug"),
+)
+
 @Composable
 private fun SectionContent(s: Section) {
     when (s) {
@@ -142,6 +171,7 @@ private fun SectionContent(s: Section) {
         Section.METADATA -> MetadataSection()
         Section.NETWORK -> NetworkSection()
         Section.ABOUT -> AboutSection()
+        Section.LOGS -> LogsSection()
         Section.PROVIDERS -> ProvidersSection()
         Section.GENERAL -> GeneralSection()
         Section.BACKUP -> BackupSection()
@@ -224,81 +254,79 @@ private fun AppearanceSection() {
 
 @Composable
 private fun PlayerSection() {
-    Heading("When you press Play")
+    Heading("Playback")
     var autoPlay by remember { mutableStateOf(Settings.autoPlay) }
-    ChoiceChips(listOf(true, false), { if (it) "Start the best source automatically" else "Let me choose the source" }, { it == autoPlay }) {
+    ChoiceChips(listOf(true, false), { if (it) "Best source, automatically" else "Let me choose" }, { it == autoPlay }) {
         autoPlay = it; Settings.autoPlay = it
     }
-    Hint(if (autoPlay) "The best source (closest to your preferred quality) starts by itself; Sources in the player lists the others."
-        else "The sources list opens, with a search box and language and quality filters: pick the one you want.")
-    Heading("Playback")
+    Hint(if (autoPlay) "Starts as soon as a decent source is found." else "The sources list opens when you press Play.")
     var next by remember { mutableStateOf(Settings.autoPlayNext) }
-    SwitchRow("Play the next episode automatically", "Counts down from the credits; Cancel stays on this episode", next) { next = it; Settings.autoPlayNext = it }
+    SwitchRow("Next episode automatically", "From the credits, with a countdown; Back cancels.", next) { next = it; Settings.autoPlayNext = it }
     var skipBtns by remember { mutableStateOf(Settings.skipButtons) }
-    SwitchRow("Skip intro buttons (anime)", "Intro, recap and credits times from AniSkip", skipBtns) { skipBtns = it; Settings.skipButtons = it }
+    SwitchRow("Skip intro buttons (anime)", "Intro, recap and credits times from AniSkip.", skipBtns) { skipBtns = it; Settings.skipButtons = it }
     var autoSkip by remember { mutableStateOf(Settings.autoSkip) }
     SwitchRow("Skip intros automatically (anime)", null, autoSkip) { autoSkip = it; Settings.autoSkip = it }
-    Heading("Preferred quality")
+
+    Heading("Quality")
     var quality by remember { mutableStateOf(Settings.preferredQuality) }
     ChoiceChips(listOf(0, 2160, 1080, 720, 480), { if (it == 0) "Best" else "${it}p" }, { it == quality }) { quality = it; Settings.preferredQuality = it }
     var prepare by remember { mutableStateOf(Settings.prepareSources) }
-    SwitchRow("Find sources before you press Play", "When a title's page opens, its sources are looked up in the background, so Play starts sooner. Found sources are kept for 20 minutes.", prepare) { prepare = it; Settings.prepareSources = it }
-    Heading("Codec (decoding)")
-    var decoding by remember { mutableStateOf(Settings.softwareDecoding) }
-    ChoiceChips(listOf(-1, 0, 2, 1), { mapOf(-1 to "Automatic", 0 to "HW + SW", 2 to "SW + HW", 1 to "HW only")[it]!! }, { it == decoding }) {
-        decoding = it; Settings.softwareDecoding = it
-    }
-    Hint("Automatic: phones and tablets fall back to software decoding when this hardware can't handle a codec; TVs stay on hardware. " +
-        "SW + HW (FFmpeg) helps with AV1/HEVC 10-bit on chips with no hardware decoder for them. Applies on the next playback.")
-    Heading("Buffer (4K without buffering)")
-    var buffer by remember { mutableStateOf(Settings.bufferProfile) }
-    ChoiceChips(listOf(-1, 0, 1, 2), { mapOf(-1 to "Automatic", 0 to "Low RAM", 1 to "Balanced", 2 to "4K / high bitrate")[it]!! }, { it == buffer }) {
-        buffer = it; Settings.bufferProfile = it
-    }
-    Hint("Automatic sizes the buffer to this device's memory. 4K keeps more ahead so the connection stays ahead of the bitrate. " +
-        "Applies on the next playback.")
-    var autoRotate by remember { mutableStateOf(Settings.autoRotatePortrait) }
-    SwitchRow("Auto-rotate vertical videos", "Vertical videos (shorts, vertical cuts) rotate to portrait by themselves, without touching anything; the screen returns to landscape when the video ends.", autoRotate) {
-        autoRotate = it; Settings.autoRotatePortrait = it
-    }
-    Heading("Wait for sources")
-    var timeout by remember { mutableStateOf(Settings.sourcesTimeoutSeconds) }
-    ChoiceChips(listOf(30, 60, 90, 120), { "$it s" }, { it == timeout }) { timeout = it; Settings.sourcesTimeoutSeconds = it }
-    Heading("Audio language")
-    var audio by remember { mutableStateOf(Settings.audioLanguage) }
-    LanguageChips(audio) { audio = it; Settings.audioLanguage = it }
-    OutlinedTextField(audio, { audio = it; Settings.audioLanguage = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        label = { Text("Or type codes, in order, e.g. hi,en") })
-    Hint("Sources whose names say this language (\"Hindi\", \"Dual audio [Hindi + English]\") come first, and in a source with several " +
-        "audio tracks this one is picked. Leave empty for the stream's default.")
-    Heading("Subtitles")
-    var subs by remember { mutableStateOf(Settings.subtitleLanguage) }
-    LanguageChips(subs) { subs = it; Settings.subtitleLanguage = it }
-    OutlinedTextField(subs, { subs = it; Settings.subtitleLanguage = it.trim() }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-        label = { Text("Or type codes, in order, e.g. en or ar,en") })
-    Hint("Turned on by themselves when the source has them. Online subtitles (OpenSubtitles, no account) are in the player's Subtitles menu.")
-    Heading("Sound")
-    var level by remember { mutableStateOf(Settings.levelAudio) }
-    SwitchRow("Even out loud and quiet sounds", "Quieter music and explosions, clearer voices: good on TVs and at night. Also in the player's Audio menu.", level) {
-        level = it; Settings.levelAudio = it
-    }
+    SwitchRow("Find sources before Play", "Looks them up in the background when you open a title's page; kept for 20 minutes.", prepare) { prepare = it; Settings.prepareSources = it }
+
     Heading("Picture")
-    var rotation by remember { mutableStateOf(Settings.playerOrientation) }
     if (!isTv) {
+        var rotation by remember { mutableStateOf(Settings.playerOrientation) }
         Text("Rotation", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(bottom = 4.dp))
         ChoiceChips(listOf("LANDSCAPE", "PORTRAIT", "AUTO"), { mapOf("LANDSCAPE" to "Landscape", "PORTRAIT" to "Portrait", "AUTO" to "As the device is held")[it]!! }, { it == rotation }) {
             rotation = it; Settings.playerOrientation = it
         }
+    }
+    var autoRotate by remember { mutableStateOf(Settings.autoRotatePortrait) }
+    SwitchRow("Auto-rotate vertical videos", "Vertical videos play in portrait and back, without rotating anything.", autoRotate) {
+        autoRotate = it; Settings.autoRotatePortrait = it
     }
     var zoomMode by remember { mutableStateOf(Settings.playerZoom) }
     Text("Picture size", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
     ChoiceChips(io.github.decodede.potatoflix.player.Zoom.entries.map { it.name }, { n -> io.github.decodede.potatoflix.player.Zoom.valueOf(n).label }, { it == zoomMode }) {
         zoomMode = it; Settings.playerZoom = it
     }
-    Hint("The player's resize button switches between Fit, Fill and Zoom with one tap.")
+
+    Heading("Codec & buffer")
+    var decoding by remember { mutableStateOf(Settings.softwareDecoding) }
+    ChoiceChips(listOf(-1, 0, 2, 1), { mapOf(-1 to "Automatic", 0 to "HW + SW", 2 to "SW + HW", 1 to "HW only")[it]!! }, { it == decoding }) {
+        decoding = it; Settings.softwareDecoding = it
+    }
+    Hint("Automatic: FFmpeg fills in for codecs this hardware can't do. Applies on the next playback.")
+    var buffer by remember { mutableStateOf(Settings.bufferProfile) }
+    ChoiceChips(listOf(-1, 0, 1, 2), { mapOf(-1 to "Automatic", 0 to "Low RAM", 1 to "Balanced", 2 to "4K / high bitrate")[it]!! }, { it == buffer }) {
+        buffer = it; Settings.bufferProfile = it
+    }
+    Hint("Automatic sizes the buffer to this device's memory. Applies on the next playback.")
+
+    Heading("Audio")
+    var audio by remember { mutableStateOf(Settings.audioLanguage) }
+    LanguageChips(audio) { audio = it; Settings.audioLanguage = it }
+    OutlinedTextField(audio, { audio = it; Settings.audioLanguage = it }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        label = { Text("Or type codes, in order, e.g. hi,en") })
+    Hint("Sources whose names say this language come first; in a source with several audio tracks, this one is picked.")
+    var level by remember { mutableStateOf(Settings.levelAudio) }
+    SwitchRow("Even out loud and quiet sounds", "Voices clearer, background quieter. Also in the player's Audio menu.", level) {
+        level = it; Settings.levelAudio = it
+    }
+
+    Heading("Subtitles")
+    var subs by remember { mutableStateOf(Settings.subtitleLanguage) }
+    LanguageChips(subs) { subs = it; Settings.subtitleLanguage = it }
+    OutlinedTextField(subs, { subs = it; Settings.subtitleLanguage = it.trim() }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+        label = { Text("Or type codes, in order, e.g. en or ar,en") })
+    Hint("Turned on themselves when the source has them. Style, size and online subtitles: the player's Subtitles menu.")
+
+    Heading("Limits")
+    var timeout by remember { mutableStateOf(Settings.sourcesTimeoutSeconds) }
+    ChoiceChips(listOf(30, 60, 90, 120), { "$it s" }, { it == timeout }) { timeout = it; Settings.sourcesTimeoutSeconds = it }
+    Hint("How long to wait for a source before giving up on it.")
     TorrentSettings()
 }
-
 @Composable
 private fun MetadataSection() {
     val scope = rememberCoroutineScope()
@@ -363,13 +391,16 @@ private fun AboutSection() {
         Column(Modifier.padding(start = 12.dp)) {
             Text("Potatoflix", style = MaterialTheme.typography.headlineSmall)
             Text("Version ${versionName ?: "?"}", style = MaterialTheme.typography.bodySmall)
-            Text("Created by Syed Ali Hamza", style = MaterialTheme.typography.bodyMedium, color = Palette.accent)
+            Text("Based on Stream Goat (Syed Ali Hamza)", style = MaterialTheme.typography.bodyMedium, color = Palette.muted)
         }
     }
     PillButton("Source code on GitHub", null, primary = false, compact = true) {
         com.lagradost.cloudstream3.CloudStreamApp.openBrowser("https://github.com/decodede/potato", context.findActivity())
     }
     // A problem without a crash: GitHub's new-issue page with the device and version filled in (a QR code on TVs).
+    PillButton("View the logs", Icons.Filled.BugReport, primary = false, compact = true, modifier = Modifier.padding(top = 8.dp)) {
+        Nav.open(Screen.SettingsPage("LOGS"))
+    }
     PillButton("Report a glitch or problem", null, primary = false, compact = true, modifier = Modifier.padding(top = 8.dp)) {
         // From Settings there's no screen to picture: the last steps say where it happened.
         io.github.decodede.potatoflix.GlitchReport.draft = io.github.decodede.potatoflix.GlitchReport.Draft(
@@ -493,4 +524,31 @@ private fun WeTrakrSection() {
         }
     }
     status?.let { Hint(it) }
+}
+
+/** In-memory event log, newest first: failures while loading extensions, network errors, playback problems. */
+@Composable
+private fun LogsSection() {
+    val context = LocalContext.current
+    val logVersion = io.github.decodede.potatoflix.AppLog.version
+    val lines = remember(logVersion) { io.github.decodede.potatoflix.AppLog.all().asReversed() }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 8.dp)) {
+        PillButton("Copy all", Icons.Filled.Edit, compact = true) {
+            (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager)
+                ?.setPrimaryClip(android.content.ClipData.newPlainText("Potatoflix logs", lines.joinToString("\n")))
+            io.github.decodede.potatoflix.App.toast("Logs copied")
+        }
+        PillButton("Clear", null, primary = false, compact = true) { io.github.decodede.potatoflix.AppLog.clear() }
+    }
+    Hint("Newest first. Kept in memory only; cleared when the app closes.")
+    if (lines.isEmpty()) {
+        Hint("Nothing logged yet.")
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        lines.forEach { line ->
+            Text(line, style = MaterialTheme.typography.bodySmall, color = if (line.length > 2 && line[9] == 'E') Palette.accent else Palette.muted,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+        }
+    }
 }

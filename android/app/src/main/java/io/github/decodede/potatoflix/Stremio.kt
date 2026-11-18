@@ -209,7 +209,7 @@ object StremioAddons {
     internal suspend fun json(url: String): JSONObject? = runCatching {
         val r = app.get(url, timeout = 20)
         if (r.isSuccessful) JSONObject(r.text) else null
-    }.onFailure { android.util.Log.w("stremio", "$url: $it") }.getOrNull()
+    }.onFailure { io.github.decodede.potatoflix.AppLog.w("stremio", "$url: $it") }.getOrNull()
 
     fun tvType(type: String): TvType = when (type) {
         "movie" -> TvType.Movie

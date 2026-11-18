@@ -148,9 +148,9 @@ object WeTrakr {
                     val token = token() ?: return@launch
                     val (tmdb, imdb) = ids()
                     val (code, o) = post("/scrobble/$action", media(r, season, episode, tmdb, imdb, progress.coerceIn(0.0, 100.0)), token)
-                    if (code >= 400) android.util.Log.w("wetrakr", "$action: $code ${o.optString("message")}")
+                    if (code >= 400) io.github.decodede.potatoflix.AppLog.w("wetrakr", "$action: $code ${o.optString("message")}")
                     else if (action == "stop" && o.optString("action") == "scrobble") GlitchReport.step("WeTrakr: marked ${r.name} watched")
-                }.onFailure { android.util.Log.w("wetrakr", "$action failed: $it") }
+                }.onFailure { io.github.decodede.potatoflix.AppLog.w("wetrakr", "$action failed: $it") }
             }
         }
 

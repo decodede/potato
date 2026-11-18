@@ -32,7 +32,7 @@ object CrashReport {
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             val extension = runCatching { if (thread !== Looper.getMainLooper().thread) extensionOf(error) else null }.getOrNull()
             if (extension != null) {
-                Log.e(TAG, "$extension failed in a background thread (${thread.name}); the app keeps running", error)
+                io.github.decodede.potatoflix.AppLog.e(TAG, "$extension failed in a background thread (${thread.name}); the app keeps running", error)
                 runCatching { App.toast("$extension had an error and stopped: ${error.message ?: error.javaClass.simpleName}") }
                 return@setDefaultUncaughtExceptionHandler
             }

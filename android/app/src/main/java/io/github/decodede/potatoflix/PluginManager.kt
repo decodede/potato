@@ -161,7 +161,7 @@ object PluginManager {
         }
         onHomeLoaded(home != null && loaded.containsKey(File(home.filePath).absolutePath))
         all.filter { it !== home }.map { data -> async(loading) { loadOne(data) } }.awaitAll()
-        Log.i("plugins", "loaded ${loaded.size}/${all.size} extensions")
+        io.github.decodede.potatoflix.AppLog.i("plugins", "loaded ${loaded.size}/${all.size} extensions")
         changed()
         failures
     }
@@ -171,10 +171,13 @@ object PluginManager {
      * with a manifest.json, loaded natively with its own class loader whose parent is the app,
      * so the extension links against this app's copy of the CloudStream library.
      */
+    /** The Activity extensions get as their context, like the official app; Application only until one exists. */
+    private fun pluginContext(): android.content.Context = com.lagradost.cloudstream3.CommonActivity.activity ?: App.context
+
     fun loadPlugin(file: File, data: PluginData): Result<LoadedPlugin> = runCatching {
         loaded[file.absolutePath]?.let { return@runCatching it }
         // Android 14+ refuses to load writable dex files.
-        if (!file.setReadOnly()) Log.w("plugins", "Couldn't make ${file.name} read-only")
+        if (!file.setReadOnly()) io.github.decodede.potatoflix.AppLog.w("plugins", "Couldn't make ${file.name} read-only")
 
         val loader = PathClassLoader(file.absolutePath, App.context.classLoader)
         val manifest = loader.getResourceAsStream("manifest.json")?.use {
@@ -187,7 +190,7 @@ object PluginManager {
         if (manifest.requiresResources) (instance as? Plugin)?.resources = resourcesOf(file)
 
         synchronized(registerLock) {
-            if (instance is Plugin) instance.load(App.context) else instance.load()
+            if (instance is Plugin) instance.load(pluginContext()) else instance.load()
         }
 
         LoadedPlugin(data.copy(version = manifest.version ?: data.version), manifest, instance, loader).also {
@@ -197,7 +200,7 @@ object PluginManager {
         }
     }.onFailure {
         failures[data.internalName] = it
-        Log.e("plugins", "Failed to load ${file.name}", it)
+        io.github.decodede.potatoflix.AppLog.e("plugins", "Failed to load ${file.name}", it)
     }
 
     /** The extension's own resources (strings, layouts of its settings screen), as upstream loads them. */
@@ -205,7 +208,7 @@ object PluginManager {
     private fun resourcesOf(file: File): Resources? = runCatching {
         val assets = AssetManager::class.java.getDeclaredConstructor().newInstance()
         AssetManager::class.java.getMethod("addAssetPath", String::class.java).invoke(assets, file.absolutePath)
-        val res = App.context.resources
+        val res = pluginContext().resources
         Resources(assets, res.displayMetrics, res.configuration)
     }.getOrNull()
 

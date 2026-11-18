@@ -88,7 +88,7 @@ object Engine {
     fun provider(name: String): MainAPI? = providers().firstOrNull { it.name.equals(name, ignoreCase = true) }
 
     private fun log(api: MainAPI, what: String, t: Throwable) {
-        if (t !is CancellationException) android.util.Log.w(api.name, "$what failed: $t")
+        if (t !is CancellationException) io.github.decodede.potatoflix.AppLog.w(api.name, "$what failed: $t")
     }
 
     /** Home sections in mainPage order; each one is emitted with its index as soon as it loads. */

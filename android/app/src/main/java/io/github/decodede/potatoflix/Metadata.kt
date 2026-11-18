@@ -142,7 +142,7 @@ object Metadata {
                 return j.takeIf { !it.optBoolean("_none") }
             }
         }
-        val value = withContext(Dispatchers.IO) { permits.withPermit { runCatching { compute() }.onFailure { android.util.Log.w("metadata", "$it") }.getOrNull() } }
+        val value = withContext(Dispatchers.IO) { permits.withPermit { runCatching { compute() }.onFailure { io.github.decodede.potatoflix.AppLog.w("metadata", "$it") }.getOrNull() } }
         val stored = value ?: JSONObject().put("_none", true)
         synchronized(memory) { memory[key] = stored }
         runCatching { file.writeText(stored.toString()) }

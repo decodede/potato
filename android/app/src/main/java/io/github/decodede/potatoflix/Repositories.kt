@@ -115,11 +115,11 @@ object RepositoryManager {
 
     suspend fun parseRepository(url: String): Repository? = runCatching {
         mapper.readValue<Repository>(app.get(convertRawGitUrl(url), cacheTime = 15, cacheUnit = TimeUnit.MINUTES).text)
-    }.onFailure { Log.w("repos", "Failed to read repository $url: $it") }.getOrNull()
+    }.onFailure { io.github.decodede.potatoflix.AppLog.w("repos", "Failed to read repository $url: $it") }.getOrNull()
 
     private suspend fun parsePlugins(pluginsUrl: String): List<SitePlugin> = runCatching {
         mapper.readValue<List<SitePlugin>>(app.get(convertRawGitUrl(pluginsUrl), cacheTime = 15, cacheUnit = TimeUnit.MINUTES).text)
-    }.onFailure { Log.w("repos", "Failed to read plugin list $pluginsUrl: $it") }.getOrDefault(emptyList())
+    }.onFailure { io.github.decodede.potatoflix.AppLog.w("repos", "Failed to read plugin list $pluginsUrl: $it") }.getOrDefault(emptyList())
 
     suspend fun getRepoPlugins(repositoryData: RepositoryData): List<PluginWrapper>? {
         val repo = parseRepository(repositoryData.url) ?: return null

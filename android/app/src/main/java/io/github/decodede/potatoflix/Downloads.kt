@@ -223,7 +223,7 @@ object Downloads {
                     update(item.id) { it.copy(state = State.DONE, error = null, speed = 0) }
                 } catch (t: Throwable) {
                     if (t is CancellationException) throw t
-                    android.util.Log.w("downloads", "${item.title} ${item.label.orEmpty()}: $t")
+                    io.github.decodede.potatoflix.AppLog.w("downloads", "${item.title} ${item.label.orEmpty()}: $t")
                     val current = items[item.id]
                     if (current != null && !current.retried && current.source != null) {
                         // Links often expire: ask the extension again, once, and start over.

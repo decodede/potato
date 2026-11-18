@@ -67,6 +67,11 @@ enum class Zoom(val label: String) {
     ZOOM("Zoom"),
 }
 
+/** The shape of the last video decoded, remembered across "next episode" so the screen doesn't flip back first. */
+object LastVideoOrientation {
+    @Volatile var vertical: Boolean? = null
+}
+
 /** One selectable track (embedded, or a subtitle file added from a link), for the Audio/Subtitles menus. */
 data class TrackOption(
     /** Stable key: "audio-<index>-<label>"/"ext-<hash>" for files, "emb-<index>-<label>" for embedded text. */
@@ -109,8 +114,8 @@ class PlayerController(
             0 -> true to false
             2 -> true to true
             1 -> false to false
-            // Auto: phones/tablets get FFmpeg as a safety net; TVs stay on hardware (FFmpeg crashes there).
-            else -> !App.isTv to false
+            // Auto: FFmpeg as a safety net everywhere; switchable in Settings → Player → Codec.
+            else -> true to false
         }
         if (enableSoftware) FixedNextRenderersFactory(App.context).apply {
             setEnableDecoderFallback(true)
@@ -153,7 +158,7 @@ class PlayerController(
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-            android.util.Log.w("Potatoflix", "player error: ${error.errorCodeName} ${error.message}")
+            io.github.decodede.potatoflix.AppLog.w("Potatoflix", "player error: ${error.errorCodeName} ${error.message}")
             main.post { failover() }
         }
 
@@ -163,6 +168,7 @@ class PlayerController(
                     videoWidth = videoSize.width
                     videoHeight = videoSize.height
                     vertical = videoSize.height > videoSize.width
+                    LastVideoOrientation.vertical = vertical
                 }
             }
         }
@@ -179,7 +185,7 @@ class PlayerController(
     }
 
     /** What the player had the last time tracks changed: the source of the Audio/Subtitles menus. */
-    private var currentTracks: Tracks = Tracks.EMPTY
+    private var currentTracks by mutableStateOf(Tracks.EMPTY)
     private var audioKey: String? = null
     private var textKey: String? = null   // null = nothing forced; external ids start with "ext-"
     private var textDisabled = false
@@ -450,20 +456,22 @@ class PlayerController(
         openTorrent?.let { uri -> openTorrent = null; Thread { io.github.decodede.potatoflix.Torrents.close(uri) }.start() }
     }
 
-    /** The qualities inside the current HLS source (empty when it has one), and the one pinned (null = automatic). */
-    var variants by mutableStateOf<List<HlsVariants.Variant>>(emptyList())
-        private set
-    var variant by mutableStateOf<HlsVariants.Variant?>(null)
-        private set
-    private var master: HlsVariants.Master? = null
-    private var mastersJob: Job? = null
+    /** The heights the current source offers (from the tracks), best first; empty for direct files. */
+    fun qualityHeights(): List<Int> = currentTracks.groups
+        .filter { it.type == C.TRACK_TYPE_VIDEO }
+        .flatMap { g -> (0 until g.length).mapNotNull { i -> g.getTrackFormat(i).height.takeIf { h -> h > 0 } } }
+        .distinct().sortedDescending()
 
-    /** Pins a quality of the current source ([v] null = automatic). Adaptive; nothing reloads. */
-    fun setQuality(v: HlsVariants.Variant?) {
-        variant = v
+    /** The quality pinned for this playback (null = adaptive/Auto). */
+    var pinnedHeight by mutableStateOf<Int?>(null)
+        private set
+
+    /** Pins a quality ([height] null = automatic). Adaptive; nothing reloads. */
+    fun setQualityHeight(height: Int?) {
+        pinnedHeight = height
         runCatching {
             val params = trackSelector.buildUponParameters()
-            if (v?.height == null) params.clearVideoSizeConstraints() else params.setMaxVideoSize(Int.MAX_VALUE, v.height)
+            if (height == null) params.clearVideoSizeConstraints() else params.setMaxVideoSize(Int.MAX_VALUE, height)
             trackSelector.parameters = params.build()
         }
     }
@@ -472,26 +480,6 @@ class PlayerController(
         putAll(link.headers)
         if (link.referer.isNotBlank() && keys.none { it.equals("Referer", true) }) put("Referer", link.referer)
         if (keys.none { it.equals("User-Agent", true) }) put("User-Agent", USER_AGENT)
-    }
-
-    /** Reads an HLS source's master playlist for its qualities (in the background; nothing waits for it). */
-    private fun loadVariants(link: ExtractorLink) {
-        mastersJob?.cancel()
-        master = null; variants = emptyList(); variant = null
-        if (!(link.isM3u8 || link.url.substringBefore('?').endsWith(".m3u8"))) return
-        mastersJob = scope.launch {
-            val m = withContext(Dispatchers.IO) {
-                runCatching {
-                    val request = okhttp3.Request.Builder().url(link.url).apply {
-                        headersOf(link).forEach { (k, v) -> header(k, v) }
-                    }.build()
-                    com.lagradost.cloudstream3.app.baseClient.newCall(request).execute().use { r ->
-                        if (!r.isSuccessful) null else HlsVariants.parse(r.body.string().take(512 * 1024), r.request.url.toString())
-                    }
-                }.getOrNull()
-            }
-            if (current?.url == link.url && m != null) { master = m; variants = m.variants }
-        }
     }
 
     private fun okHttpClient(): OkHttpClient = com.lagradost.cloudstream3.app.baseClient
@@ -544,8 +532,7 @@ class PlayerController(
         currentSourceOverride = if (sourceOverride != null && !io.github.decodede.potatoflix.Torrents.isTorrent(link)) sourceOverride else null
         playCalledAt = android.os.SystemClock.elapsedRealtime()
         val keep = if (started) time.takeIf { it > 0 } ?: startAt else startAt
-        if (sourceOverride == null && (current?.url != link.url || variant != null)) loadVariants(link.also { current = it })
-        current = link
+        if (sourceOverride == null && current?.url != link.url) current = link
         tried += link.url
         error = null
         ended = false
@@ -586,7 +573,7 @@ class PlayerController(
         // a TV channel after 12 s (it has nothing else to wait for).
         watchdog?.cancel()
         if (!started) watchdog = scope.launch {
-            delay(if (TorrentsOf(link)) 60_000 else 25_000)
+            delay(if (TorrentsOf(link)) 60_000 else 35_000)
             if (!started && current?.url == link.url) failover()
         }
         // Subtitle files added earlier keep playing on the new source.
@@ -701,7 +688,7 @@ class PlayerController(
         scope.launch {
             val resolved = withContext(Dispatchers.IO) {
                 runCatching { prepareExternalSubtitle(s, SubtitleStyle.currentClean()) }
-                    .onFailure { android.util.Log.w("Potatoflix", "subtitle clean-up failed", it) }
+                    .onFailure { io.github.decodede.potatoflix.AppLog.w("Potatoflix", "subtitle clean-up failed", it) }
                     .getOrNull()
             } ?: s
             if (externalSubtitles.none { externalKey(it) == key }) externalSubtitles += s

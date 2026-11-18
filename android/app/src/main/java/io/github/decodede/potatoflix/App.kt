@@ -58,12 +58,18 @@ object App {
         Downloads.onChange { DownloadService.ensure(context) }
         // Extensions that add or remove providers (Ultima, StreamPlay…) fire the official app's event: refresh.
         com.lagradost.cloudstream3.MainActivity.afterPluginsLoadedEvent += { PluginManager.bumpVersion() }
+        scope.launch(Dispatchers.IO) { pruneCache() }
         scope.launch {
+            // Extensions get the Activity as their context; wait briefly for MainActivity on cold starts.
+            var waited = 0
+            while (com.lagradost.cloudstream3.CommonActivity.activity == null && waited++ < 100) {
+                kotlinx.coroutines.delay(100)
+            }
             // Like the official app: Home's extension first (mainPluginsLoadedEvent), then the rest.
             val failures = PluginManager.loadAll(onHomeLoaded = { ok ->
                 runCatching { com.lagradost.cloudstream3.MainActivity.mainPluginsLoadedEvent.invoke(ok) }
             })
-            if (failures.isNotEmpty()) Log.w("plugins", "Failed: ${failures.keys}")
+            if (failures.isNotEmpty()) io.github.decodede.potatoflix.AppLog.w("plugins", "Failed: ${failures.keys}")
             // Extensions waiting for every extension to load run now.
             runCatching { com.lagradost.cloudstream3.MainActivity.afterPluginsLoadedEvent.invoke(true) }
             // Carry on with downloads that were running when the app closed.
@@ -88,6 +94,16 @@ object App {
             Updates.lastCheck = System.currentTimeMillis()
             val version = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: return
             runCatching { Updates.check(version) }.getOrNull()?.let { io.github.decodede.potatoflix.ui.UpdateState.available = it }
+        }
+    }
+
+    /** Deletes cached files older than 14 days (extensions re-fetch or re-create them when needed). */
+    private fun pruneCache() {
+        runCatching {
+            val now = System.currentTimeMillis()
+            val cutoff = now - 14L * 24 * 3600 * 1000
+            App.context.cacheDir.walkTopDown().asSequence().filter { it.isFile && it.lastModified() < cutoff }
+                .forEach { runCatching { it.delete() } }
         }
     }
 

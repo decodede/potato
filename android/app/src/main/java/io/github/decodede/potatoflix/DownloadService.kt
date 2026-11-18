@@ -101,7 +101,7 @@ class DownloadService : Service() {
             if (running || Downloads.active().isEmpty()) return
             running = true
             runCatching { ContextCompat.startForegroundService(context, Intent(context, DownloadService::class.java)) }
-                .onFailure { running = false; android.util.Log.w("downloads", "Couldn't start the download service: $it") }
+                .onFailure { running = false; io.github.decodede.potatoflix.AppLog.w("downloads", "Couldn't start the download service: $it") }
         }
     }
 }

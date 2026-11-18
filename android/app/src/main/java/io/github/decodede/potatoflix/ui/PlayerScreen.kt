@@ -152,10 +152,19 @@ fun PlayerScreen(screen: Screen.Player) {
 
     DisposableEffect(c) { onDispose { c.release() } }
 
-    // Choosing a source keeps the phone as it's held; it turns to landscape once a video plays.
+    // Picking a source keeps the phone as it's held. Orientation for the video follows the shape of the video
+    // (vertical → portrait); the last known shape is used for a smooth switch between episodes.
     val turn = !isTv && (c.started || sheet != Sheet.SOURCES)
-    LaunchedEffect(turn, c.vertical) {
+    LaunchedEffect(turn) {
         if (turn) {
+            activity?.requestedOrientation =
+                if (Settings.autoRotatePortrait && io.github.decodede.potatoflix.player.LastVideoOrientation.vertical == true)
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                else orientationOf(Settings.playerOrientation)
+        }
+    }
+    LaunchedEffect(c.videoWidth, c.videoHeight) {
+        if (c.videoWidth > 0 && c.videoHeight > 0) {
             activity?.requestedOrientation =
                 if (Settings.autoRotatePortrait && c.vertical) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                 else orientationOf(Settings.playerOrientation)
@@ -402,7 +411,7 @@ private fun Gestures(locked: Boolean, onTap: () -> Unit, onSeek: (Long) -> Unit,
 }
 
 @Composable
-private fun RoundIcon(icon: ImageVector, label: String, modifier: Modifier = Modifier, size: Int = 44, onClick: () -> Unit) {
+private fun RoundIcon(icon: ImageVector, label: String, modifier: Modifier = Modifier, size: Int = 50, onClick: () -> Unit) {
     Box(modifier.size(size.dp).card(CircleShape, onClick = onClick).background(Color.Black.copy(alpha = 0.35f), CircleShape),
         contentAlignment = Alignment.Center) {
         Icon(icon, label, tint = Color.White, modifier = Modifier.size((size * 0.55).dp))
@@ -468,9 +477,9 @@ private fun Controls(c: PlayerController, onSheet: (Sheet) -> Unit, onLock: () -
         }
         // Middle: −10 · play/pause · +10
         Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(48.dp), verticalAlignment = Alignment.CenterVertically) {
-            RoundIcon(Icons.Filled.Replay10, "Back 10 seconds", size = 56) { c.seekBy(-10_000); poke() }
-            RoundIcon(if (c.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play/pause", Modifier.focusRequester(playFocus), size = 76) { c.togglePause(); poke() }
-            RoundIcon(Icons.Filled.Forward10, "Forward 10 seconds", size = 56) { c.seekBy(10_000); poke() }
+            RoundIcon(Icons.Filled.Replay10, "Back 10 seconds", size = 64) { c.seekBy(-10_000); poke() }
+            RoundIcon(if (c.playing) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play/pause", Modifier.focusRequester(playFocus), size = 88) { c.togglePause(); poke() }
+            RoundIcon(Icons.Filled.Forward10, "Forward 10 seconds", size = 64) { c.seekBy(10_000); poke() }
         }
         // Bottom: seek bar and the menus.
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp)) {
@@ -497,13 +506,13 @@ private fun Controls(c: PlayerController, onSheet: (Sheet) -> Unit, onLock: () -
                 )
                 Text(clock(c.length / 1000.0), style = MaterialTheme.typography.titleSmall, color = Color.White.copy(alpha = 0.9f))
             }
-            // Compact chips, sideways-scrollable on narrow screens; the ring shows the remote's focus.
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The action chips live on the right, sideways-scrollable on narrow screens; the ring shows the remote's focus.
+            Row(Modifier.align(Alignment.End).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 BarButton(Icons.AutoMirrored.Filled.List, "Sources") { onSheet(Sheet.SOURCES) }
                 BarButton(Icons.Filled.ClosedCaption, "Subtitles") { onSheet(Sheet.SUBTITLES) }
                 BarButton(Icons.Filled.Translate, "Audio") { onSheet(Sheet.AUDIO) }
-                // Several qualities inside this source (an HLS master): pin one, or Auto.
-                if (c.variants.isNotEmpty()) BarButton(Icons.Filled.HighQuality, c.variant?.label ?: "Auto") { onSheet(Sheet.QUALITY) }
+                // Adaptive sources (HLS/DASH): pin a quality, or Auto.
+                if (c.qualityHeights().size >= 2) BarButton(Icons.Filled.HighQuality, c.pinnedHeight?.let { if (it >= 2160) "4K" else "${it}p" } ?: "Auto") { onSheet(Sheet.QUALITY) }
                 BarButton(Icons.Filled.Speed, "${c.speed}×") { onSheet(Sheet.SPEED) }
                 // One tap: Fit → Fill → Zoom (the others are in Settings → Player).
                 BarButton(Icons.Filled.AspectRatio, c.zoom.label) { c.cycleZoom(); poke() }
@@ -518,10 +527,10 @@ private fun BarButton(icon: ImageVector, label: String, accent: Boolean = false,
     Row(Modifier.card(RoundedCornerShape(10.dp), focusScale = 1.12f, onClick = onClick)
         .background(if (accent) Palette.accent.copy(alpha = 0.9f) else Color.Black.copy(alpha = 0.55f), RoundedCornerShape(10.dp))
         .border(if (accent) 0.dp else 1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(10.dp))
-        .padding(horizontal = 9.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(5.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White, maxLines = 1)
+        .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium, color = Color.White, maxLines = 1)
     }
 }
 
@@ -623,8 +632,8 @@ private fun SheetPanel(sheet: Sheet, c: PlayerController, modifier: Modifier, on
             Sheet.SPEED -> listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f).map { r -> Option("$r×", if (r == 1f) "Normal" else null, r == c.speed) { c.setRate(r); onClose() } }
             Sheet.ZOOM -> Zoom.entries.map { z -> Option(z.label, null, z == c.zoom) { c.setZoomMode(z); onClose() } }
             Sheet.SUB_SYNC, Sheet.SUB_STYLE -> emptyList()
-            Sheet.QUALITY -> listOf(Option("Auto", "Changes with your connection", c.variant == null) { c.setQuality(null); onClose() }) +
-                c.variants.map { v -> Option(v.label, v.bandwidth?.let { "${it / 1000} kbps" }, v == c.variant) { c.setQuality(v); onClose() } }
+            Sheet.QUALITY -> listOf(Option("Auto", "Adjusts to your connection", c.pinnedHeight == null) { c.setQualityHeight(null); onClose() }) +
+                c.qualityHeights().map { h -> Option(if (h >= 2160) "4K (2160p)" else "${h}p", null, c.pinnedHeight == h) { c.setQualityHeight(h); onClose() } }
         }
         if (options.isEmpty()) Text(
             when (sheet) {

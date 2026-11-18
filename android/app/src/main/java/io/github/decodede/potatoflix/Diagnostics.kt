@@ -67,3 +67,32 @@ object ProviderTest {
         emit(Step("Sources for “${first.label}”", links > 0, detail, System.currentTimeMillis() - start))
     }
 }
+
+/** The app's own event log, kept in memory (ring buffer), shown in Settings → About → Logs, like the official app's logs. */
+object AppLog {
+    private const val CAP = 400
+    private val lines = java.util.ArrayDeque<String>(CAP + 1)
+    private val timeFormat = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+    /** Bumped on every line, so the Logs screen recomposes. */
+    var version by androidx.compose.runtime.mutableIntStateOf(0)
+        private set
+
+    private fun add(level: Char, tag: String, msg: String?, t: Throwable?) {
+        val raw = buildString {
+            append(timeFormat.format(java.util.Date())); append(' '); append(level); append('/').append(tag); append(": "); append(msg.orEmpty())
+            t?.let { append(" · ").append(it.message ?: it.toString()) }
+        }
+        synchronized(lines) {
+            while (lines.size >= CAP) lines.removeFirst()
+            lines.addLast(raw)
+        }
+        version++
+    }
+
+    fun i(tag: String, msg: String?) = add('I', tag, msg, null)
+    fun w(tag: String, msg: String?, t: Throwable? = null) = add('W', tag, msg, t)
+    fun e(tag: String, msg: String?, t: Throwable? = null) = add('E', tag, msg, t)
+
+    fun all(): List<String> = synchronized(lines) { lines.toList() }
+    fun clear() { synchronized(lines) { lines.clear() }; version++ }
+}

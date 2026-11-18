@@ -152,6 +152,18 @@ internal fun GeneralSection() {
             .onFailure { App.toast("Open Android Settings → Apps → Potatoflix → Battery → Unrestricted") }
     }
 
+    Heading("Storage")
+    PillButton("Clear cache", Icons.Filled.Delete, primary = false, compact = true) {
+        val before = runCatching { App.context.cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() } }.getOrDefault(0L)
+        App.context.cacheDir.deleteRecursively()
+        App.context.cacheDir.mkdirs()
+        runCatching { coil3.SingletonImageLoader.get(App.context).memoryCache?.clear() }
+        io.github.decodede.potatoflix.AppLog.i("storage", "cache cleared (${before / 1048576} MB)")
+        io.github.decodede.potatoflix.App.toast("Cache cleared (%.0f MB)".format(before / 1048576.0))
+    }
+    Hint("Posters, DNS answers and web pages' temporary files. The app re-fetches them when needed. " +
+        "Old cache files are also pruned automatically at start.")
+
     Heading("Network blocks")
     var proxy by remember { mutableStateOf(RepositoryManager.useJsDelivr) }
     SwitchRow("GitHub proxy", "Load repositories and extensions through jsDelivr when GitHub is blocked. Updates can arrive a few days late.", proxy) {
