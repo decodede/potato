@@ -171,6 +171,46 @@ object SubtitleStyle {
         return "%02d:%02d:%02d%c%s".format(total / 3600, (total % 3600) / 60, total % 60, sep, fraction)
     }
 
+    private val assTag = Regex("""\{[^}\n]*\}""")
+    private val assLineBreak = Regex("""\[Nn]""")
+    private val assTime = Regex("""(?:(\d+):)?(\d+):(\d+)[\.,](\d{1,3})""")
+
+    /** Converts a standard ASS/SSA file to SubRip text. Returns null if no Dialogue cues are found. */
+    internal fun assToSrt(text: String, offsetMs: Long = 0L): String? {
+        val lines = text.removePrefix("\uFEFF").replace("\r\n", "\n").replace('\r', '\n').lines()
+        val out = StringBuilder()
+        var n = 0
+        for (line in lines) {
+            val marker = line.indexOf("Dialogue:", ignoreCase = true)
+            if (marker < 0) continue
+            val parts = line.substring(marker + "Dialogue:".length).split(',', limit = 10)
+            if (parts.size < 10) continue
+            val start = assTime.matchEntire(parts[1].trim()) ?: continue
+            val end = assTime.matchEntire(parts[2].trim()) ?: continue
+            fun timeToMs(m: MatchResult): Long {
+                val h = m.groupValues[1].toLongOrNull() ?: 0L
+                val min = m.groupValues[2].toLongOrNull() ?: 0L
+                val sec = m.groupValues[3].toLongOrNull() ?: 0L
+                val frac = m.groupValues[4].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
+                return ((h * 3600 + min * 60 + sec) * 1000 + frac)
+            }
+            val body = parts[9]
+                .replace(assTag, "")
+                .replace(assLineBreak, "\n")
+                .replace("\h", " ")
+                .trim()
+            if (body.isBlank()) continue
+            val from = (timeToMs(start) + offsetMs).coerceAtLeast(0)
+            val to = (timeToMs(end) + offsetMs).coerceAtLeast(0)
+            if (to <= from) continue
+            n++
+            out.append(n).append('\n')
+                .append(msToTime(from, ',', 3)).append(" --> ").append(msToTime(to, ',', 3)).append('\n')
+                .append(body).append('\n\n')
+        }
+        return out.takeIf { n > 0 }?.toString()
+    }
+
     /** Moves every cue of an SRT/WebVTT file by [offsetMs] (the subtitle sync feature); clamped at zero. */
     fun shift(text: String, offsetMs: Long): String {
         if (offsetMs == 0L) return text

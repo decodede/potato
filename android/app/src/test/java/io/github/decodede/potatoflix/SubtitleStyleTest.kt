@@ -99,4 +99,17 @@ JOHN: Is anyone there?
         assertEquals("+0.3 s", delayText(300))
         assertEquals("−1.5 s", delayText(-1500))
     }
+
+    @Test fun assToSrtConvertsAndShifts() {
+        val ass = """
+[Script Info]
+Title: t
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:01.00,0:00:02.50,Default,,0,0,0,,{\i1}Hello{\i0}\Nworld\h!
+        """.trimIndent()
+        val out = SubtitleStyle.assToSrt(ass, 1_500)
+        assertTrue(out!!.contains("00:00:02,500 --> 00:00:04,000"))
+        assertTrue(out.contains("Hello\nworld !"))
+    }
 }

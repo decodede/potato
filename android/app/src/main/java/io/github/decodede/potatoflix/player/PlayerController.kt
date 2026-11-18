@@ -334,7 +334,14 @@ class PlayerController(
         .filter { it.type == C.TRACK_TYPE_AUDIO }
         .flatMap { g -> (0 until g.length).map { i -> TextRef(g.getTrackFormat(i).label, g.getTrackFormat(i).language, g.getTrackFormat(i).id, g.getTrackFormat(i).sampleMimeType, g.getMediaTrackGroup(), i) } }
 
-    private fun trackKey(r: TextRef) = r.id?.takeIf { it.isNotBlank() } ?: listOfNotNull(r.label, r.language).joinToString("|").ifBlank { "track-${r.index}" }
+    /** Track ids lose the MergingMediaSource index prefix so selections survive rebuilds and source switches. */
+    private fun normalizedTrackId(id: String?): String? = id?.let {
+        val m = Regex("^\\d+:(.+)$").matchEntire(it)
+        m?.groupValues?.getOrNull(1) ?: it
+    }
+
+    private fun trackKey(r: TextRef) = normalizedTrackId(r.id?.takeIf { it.isNotBlank() })
+        ?: listOfNotNull(r.label, r.language).joinToString("|").ifBlank { "track-${r.index}" }
 
     private fun applyTextSelection() {
         val params = trackSelector.buildUponParameters().setTrackTypeDisabled(C.TRACK_TYPE_TEXT, textDisabled).clearOverridesOfType(C.TRACK_TYPE_TEXT)
@@ -717,7 +724,8 @@ class PlayerController(
     /** [s] cleaned (and shifted by the subtitle sync), cached; remote files only (local files pass through). */
     private suspend fun prepareExternalSubtitle(s: SubtitleFile, clean: SubtitleStyle.Clean): SubtitleFile {
         val delay = subtitleDelay
-        if (!clean.active && delay == 0L && s.url.startsWith("/")) return s
+        val remote = !s.url.startsWith("/") && !s.url.startsWith("file:")
+        if (!remote && !clean.active && delay == 0L) return s
         val dir = java.io.File(App.context.cacheDir, "subtitles").apply { mkdirs() }
         val key = "d-${s.url.hashCode().toUInt()}-${clean.key}-$delay."
         dir.listFiles()?.firstOrNull { it.name.startsWith(key) && it.length() > 0 }
@@ -738,8 +746,11 @@ class PlayerController(
         if (text.isBlank()) return s
         val isAss = Regex("""(?im)^\s*\[script info]|^\s*Dialogue[: ]""").containsMatchIn(text)
         if (isAss) {
-            // ASS/SSA: ExoPlayer's SSA parser renders it (positions, colours, bold/italic) — keep as-is.
-            return com.lagradost.cloudstream3.newSubtitleFile(s.lang, java.io.File(dir, "${key}ssa").apply { writeText(text) }.absolutePath)
+            // Convert ASS/SSA to SubRip: more forgiving than ExoPlayer's SSA parser for real-world files,
+            // and it makes the subtitle style panel and sync work without an SSA renderer.
+            val srt = SubtitleStyle.assToSrt(text, delay) ?: return s
+            val cleanSrt = if (clean.active) SubtitleStyle.clean(srt, clean) else srt
+            return com.lagradost.cloudstream3.newSubtitleFile(s.lang, java.io.File(dir, "${key}srt").apply { writeText(cleanSrt) }.absolutePath)
         }
         if (!text.contains("-->")) return s // binary (PGS/DVB): nothing the app can parse yet
         var out = if (clean.active) SubtitleStyle.clean(text, clean) else text
