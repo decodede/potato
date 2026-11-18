@@ -76,12 +76,14 @@ fun ExtensionsScreen() {
     val repoStats = remember(version) { androidx.compose.runtime.mutableStateMapOf<String, Pair<Int, Int>>() }
     val installedNames = remember(version) { installed.map { it.internalName }.toSet() }
     androidx.compose.runtime.LaunchedEffect(version, repos) {
-        repos.forEach { repo ->
-            kotlinx.coroutines.launch(Dispatchers.IO) {
-                val list = RepositoryManager.getRepoPlugins(repo).orEmpty()
-                val alive = list.filter { it.plugin.status != 0 }
-                val have = alive.count { installedNames.contains(it.plugin.internalName) }
-                repoStats[repo.url] = have to alive.size
+        kotlinx.coroutines.coroutineScope {
+            repos.forEach { repo ->
+                kotlinx.coroutines.launch(Dispatchers.IO) {
+                    val list = RepositoryManager.getRepoPlugins(repo).orEmpty()
+                    val alive = list.filter { it.plugin.status != 0 }
+                    val have = alive.count { installedNames.contains(it.plugin.internalName) }
+                    repoStats[repo.url] = have to alive.size
+                }
             }
         }
     }
